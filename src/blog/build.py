@@ -1,6 +1,7 @@
 """Build static site from markdown content."""
 
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -167,5 +168,17 @@ def build_site(
     if static_dir.exists():
         shutil.copytree(static_dir, output_dir / "static", dirs_exist_ok=True)
         logger.info("Copied static files")
+
+    # Generate syntax highlighting CSS (light + dark), stripping background colors
+    # so code blocks inherit the background from style.css
+    syntax_prefixes = [".post-body pre code", ".entry-body pre code"]
+    light_css = HtmlFormatter(style="default", nowrap=True).get_style_defs(syntax_prefixes)
+    dark_css = HtmlFormatter(style="monokai", nowrap=True).get_style_defs(syntax_prefixes)
+    bg_pattern = re.compile(r"\s*background(?:-color)?:\s*[^;}]+;?")
+    light_css = bg_pattern.sub("", light_css)
+    dark_css = bg_pattern.sub("", dark_css)
+    syntax_css = f"{light_css}\n@media (prefers-color-scheme: dark) {{\n{dark_css}\n}}"
+    (output_dir / "static" / "syntax.css").write_text(syntax_css, encoding="utf-8")
+    logger.info("Generated syntax.css")
 
     logger.info("Build complete: %d posts, %d tags", len(posts), len(tags))

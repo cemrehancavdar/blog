@@ -1,12 +1,30 @@
 {% extends "base.html" %}
 
+{% block head %}
+{% if posts|selectattr("has_code")|list %}<link rel="stylesheet" href="/static/syntax.css">{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="posts">
+<div class="feed">
   {% for post in posts %}
-  <article class="post-summary">
-    <time datetime="{{ post.date_iso }}">{{ post.date_display }}</time>
-    <a href="{{ post.url_path }}">{{ post.title }}</a>
-    {% if post.post_type == "note" %}<span class="badge">note</span>{% endif %}
+  <article class="entry">
+    <div class="entry-meta">
+      <a href="{{ post.url_path }}" class="entry-title">{{ post.title }}</a>
+      <time datetime="{{ post.date_iso }}">{{ post.date_display }}</time>
+    </div>
+    <div class="entry-body post-body">
+      {% if post.post_type == "note" %}
+      {{ post.html }}
+      {% else %}
+      {{ post.preview_html }}
+      <p class="continue"><a href="{{ post.url_path }}">Continue reading &rarr;</a></p>
+      {% endif %}
+    </div>
+    {% if post.tags %}
+    <div class="entry-tags">
+      {% for tag in post.tags %}<a href="/tags/{{ tag }}/">{{ tag }}</a>{% endfor %}
+    </div>
+    {% endif %}
   </article>
   {% endfor %}
 </div>

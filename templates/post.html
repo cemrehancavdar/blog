@@ -8,6 +8,7 @@
 <meta property="og:type" content="article">
 <meta property="og:url" content="{{ site.url }}{{ post.url_path }}">
 {% if post.description %}<meta property="og:description" content="{{ post.description }}">{% endif %}
+{% if post.has_code %}<link rel="stylesheet" href="/static/syntax.css">{% endif %}
 {% endblock %}
 
 {% block content %}

@@ -1,5 +1,6 @@
 """Data models for blog posts and site configuration."""
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +42,22 @@ class Post:
     def date_iso(self) -> str:
         """ISO 8601 date for Atom feeds and HTML."""
         return self.date.isoformat()
+
+    @property
+    def preview_html(self) -> str:
+        """First paragraph of rendered HTML, for index page previews."""
+        if not self.html:
+            return ""
+        # Find first <p>...</p> block
+        match = re.search(r"<p>(.*?)</p>", self.html, re.DOTALL)
+        if match:
+            return f"<p>{match.group(1)}</p>"
+        return ""
+
+    @property
+    def has_code(self) -> bool:
+        """Whether the rendered HTML contains syntax-highlighted code."""
+        return '<pre><code class="language-' in self.html
 
 
 @dataclass
