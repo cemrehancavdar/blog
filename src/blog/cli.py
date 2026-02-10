@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,9 @@ import click
 
 from blog.build import build_site
 from blog.models import load_all_posts, load_config
+
+CLOUDFLARE_PROJECT_NAME = "blog"
+CLOUDFLARE_PRODUCTION_BRANCH = "main"
 
 logger = logging.getLogger(__name__)
 
@@ -147,3 +151,59 @@ def list_posts(drafts: bool, count: int):
         type_marker = f" ({post.post_type})" if post.post_type != "post" else ""
         click.echo(f"  {post.date_display}  {post.title}{type_marker}{draft_marker}")
         click.echo(f"              {post.source_path.relative_to(root)}")
+
+
+@main.command()
+@click.option("--skip-build", is_flag=True, help="Deploy without rebuilding first")
+@click.option("--dry-run", is_flag=True, help="Build only, show what would be deployed")
+def deploy(skip_build: bool, dry_run: bool):
+    """Build and deploy to Cloudflare Pages."""
+    root = _find_project_root()
+    config = load_config(root)
+    output_dir = root / config.output_dir
+
+    # Build step
+    if not skip_build:
+        click.echo("Building site...")
+        build_site(root, config, include_drafts=False)
+        click.echo(f"Built to {output_dir.relative_to(root)}/")
+
+    if not output_dir.exists():
+        click.echo("Error: output directory does not exist. Run 'blog build' first.", err=True)
+        raise SystemExit(1)
+
+    # Count files to deploy
+    file_count = sum(1 for _ in output_dir.rglob("*") if _.is_file())
+    click.echo(f"Deploying {file_count} files...")
+
+    if dry_run:
+        click.echo("Dry run — skipping deploy.")
+        return
+
+    # Check npx/wrangler availability
+    npx = shutil.which("npx")
+    if npx is None:
+        click.echo("Error: npx not found. Install Node.js to use wrangler.", err=True)
+        raise SystemExit(1)
+
+    result = subprocess.run(
+        [
+            npx,
+            "wrangler",
+            "pages",
+            "deploy",
+            str(output_dir),
+            "--project-name",
+            CLOUDFLARE_PROJECT_NAME,
+            "--branch",
+            CLOUDFLARE_PRODUCTION_BRANCH,
+        ],
+        cwd=root,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        click.echo("Deploy failed.", err=True)
+        raise SystemExit(result.returncode)
+
+    click.echo("Deployed successfully.")
