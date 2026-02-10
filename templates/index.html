@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="posts">
+  {% for post in posts %}
+  <article class="post-summary">
+    <time datetime="{{ post.date_iso }}">{{ post.date_display }}</time>
+    <a href="{{ post.url_path }}">{{ post.title }}</a>
+    {% if post.post_type == "note" %}<span class="badge">note</span>{% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+{% if posts|length >= site.posts_per_page %}
+<p class="more"><a href="/archive/">All posts &rarr;</a></p>
+{% endif %}
+{% endblock %}

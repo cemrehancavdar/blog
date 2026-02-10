@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Archive - {{ site.title }}{% endblock %}
+
+{% block content %}
+<h1>Archive</h1>
+<div class="posts">
+  {% set current_year = namespace(value=0) %}
+  {% for post in posts %}
+    {% if post.date.year != current_year.value %}
+      {% set current_year.value = post.date.year %}
+      <h2 class="year-heading">{{ current_year.value }}</h2>
+    {% endif %}
+    <article class="post-summary">
+      <time datetime="{{ post.date_iso }}">{{ post.date_display }}</time>
+      <a href="{{ post.url_path }}">{{ post.title }}</a>
+      {% if post.post_type == "note" %}<span class="badge">note</span>{% endif %}
+    </article>
+  {% endfor %}
+</div>
+{% endblock %}

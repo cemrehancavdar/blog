@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - {{ site.title }}{% endblock %}
+
+{% block content %}
+<article class="post">
+  <header class="post-header">
+    <h1>{{ title }}</h1>
+  </header>
+  <div class="post-body">
+    {{ content }}
+  </div>
+</article>
+{% endblock %}

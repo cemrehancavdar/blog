@@ -1,0 +1,9 @@
+output/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+dist/
+uv.lock
+.agent/

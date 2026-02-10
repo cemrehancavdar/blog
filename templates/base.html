@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ site.title }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ site.description }}{% endblock %}">
+  {% if site.author %}<meta name="author" content="{{ site.author }}">{% endif %}
+  <link rel="alternate" type="application/rss+xml" title="{{ site.title }}" href="/feed.xml">
+  <link rel="stylesheet" href="/static/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav class="nav">
+    <div class="container">
+      <a href="/" class="nav-title">{{ site.title }}</a>
+      <div class="nav-links">
+        <a href="/archive/">Archive</a>
+        <a href="/tags/">Tags</a>
+        <a href="/feed.xml">RSS</a>
+      </div>
+    </div>
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container">
+    <p>&copy; {{ now.year }} {{ site.author or site.title }}</p>
+  </footer>
+</body>
+</html>

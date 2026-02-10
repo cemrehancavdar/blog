@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Tags - {{ site.title }}{% endblock %}
+
+{% block content %}
+<h1>Tags</h1>
+<div class="tag-list">
+  {% for tag_name, tag_posts in tags %}
+  <a href="/tags/{{ tag_name }}/" class="tag-item">{{ tag_name }} <span class="tag-count">{{ tag_posts|length }}</span></a>
+  {% endfor %}
+</div>
+{% endblock %}
