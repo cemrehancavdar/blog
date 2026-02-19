@@ -84,40 +84,43 @@ def build_site(
     env.globals["site"] = config
     env.globals["now"] = __import__("datetime").datetime.now()
 
-    # Separate post types
-    regular_posts = [p for p in posts if p.post_type == "post"]
-    notes = [p for p in posts if p.post_type == "note"]
+    # Unlisted posts get pages built but are excluded from all listings
+    listed_posts = [p for p in posts if not p.unlisted]
 
-    # Build individual post pages
+    # Separate post types (listed only)
+    regular_posts = [p for p in listed_posts if p.post_type == "post"]
+    notes = [p for p in listed_posts if p.post_type == "note"]
+
+    # Build individual post pages (ALL posts, including unlisted)
     post_template = env.get_template("post.html")
     for post in posts:
         post_dir = output_dir / post.url_path.strip("/")
         post_dir.mkdir(parents=True, exist_ok=True)
-        html = post_template.render(post=post, posts=posts)
+        html = post_template.render(post=post, posts=listed_posts)
         (post_dir / "index.html").write_text(html, encoding="utf-8")
         logger.info("Built %s", post.url_path)
 
-    # Build index page
+    # Build index page (listed only)
     index_template = env.get_template("index.html")
     index_html = index_template.render(
-        posts=posts[: config.posts_per_page],
+        posts=listed_posts[: config.posts_per_page],
         regular_posts=regular_posts,
         notes=notes,
     )
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
     logger.info("Built index.html")
 
-    # Build archive page
+    # Build archive page (listed only)
     archive_template = env.get_template("archive.html")
     archive_dir = output_dir / "archive"
     archive_dir.mkdir(exist_ok=True)
-    archive_html = archive_template.render(posts=posts)
+    archive_html = archive_template.render(posts=listed_posts)
     (archive_dir / "index.html").write_text(archive_html, encoding="utf-8")
     logger.info("Built archive/index.html")
 
-    # Build tag pages
+    # Build tag pages (listed only)
     tags: dict[str, list[Post]] = {}
-    for post in posts:
+    for post in listed_posts:
         for tag in post.tags:
             tags.setdefault(tag, []).append(post)
 
@@ -131,16 +134,16 @@ def build_site(
         (tag_dir / "index.html").write_text(tag_html, encoding="utf-8")
         logger.info("Built tags/%s/", tag_name)
 
-    # Build tags index
+    # Build tags index (listed only)
     tags_index_html = env.get_template("tags_index.html").render(
         tags=sorted(tags.items(), key=lambda x: len(x[1]), reverse=True)
     )
     (tags_dir / "index.html").write_text(tags_index_html, encoding="utf-8")
 
-    # Build RSS feed
+    # Build RSS feed (listed only)
     from blog.feed import render_feed
 
-    feed_xml = render_feed(posts[:20], config)
+    feed_xml = render_feed(listed_posts[:20], config)
     (output_dir / "feed.xml").write_text(feed_xml, encoding="utf-8")
     logger.info("Built feed.xml")
 

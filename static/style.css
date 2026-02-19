@@ -136,6 +136,13 @@ body {
   line-height: 1.25;
   letter-spacing: -0.01em;
 }
+.post-subtitle {
+  margin: -4px 0 8px;
+  font-size: 1.1rem;
+  font-style: italic;
+  color: var(--text-dim);
+  font-weight: 400;
+}
 .post-header time {
   color: var(--text-dim);
   font-size: 0.9rem;

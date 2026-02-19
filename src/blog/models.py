@@ -20,7 +20,9 @@ class Post:
     post_type: str = "post"  # "post" or "note"
     tags: list[str] = field(default_factory=list)
     draft: bool = False
+    unlisted: bool = False  # built but not shown in index/archive/tags/RSS
     description: str = ""
+    subtitle: str = ""
     html: str = ""  # rendered HTML, set during build
 
     @property
@@ -145,7 +147,9 @@ def load_post(filepath: Path) -> Post:
         post_type=metadata.get("type", "post"),
         tags=tags,
         draft=metadata.get("draft", False),
+        unlisted=metadata.get("unlisted", False),
         description=metadata.get("description", ""),
+        subtitle=metadata.get("subtitle", ""),
     )
 
 
