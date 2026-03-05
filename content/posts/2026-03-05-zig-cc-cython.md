@@ -5,7 +5,7 @@ type: post
 tags: [python, cython, zig, c, compiler, build]
 draft: true
 subtitle: "the C compiler you already have"
-description: "You can uv add ziglang and immediately use it as a drop-in C compiler. No Xcode CLT version hell, no MSVC setup, no toolchain hunting. Here's how to use it to compile Cython extensions — and any other C project."
+description: "You can uv add ziglang and immediately use it as a drop-in C compiler. No Xcode CLT version hell, no MSVC setup, no toolchain hunting. Here's how to use it to compile Cython extensions — and what that compilation pipeline actually looks like."
 ---
 
 You need a C compiler. You're on Python. The usual path is: install Xcode Command Line Tools on Mac, hope the version matches what your package expects, fight it for 20 minutes, maybe succeed.
@@ -16,7 +16,7 @@ There's a shorter path: `uv add ziglang`.
 
 ## What's in the box
 
-<a href="https://ziglang.org/" target="_blank">Zig</a> is a systems programming language, but it ships with a full C/C++ compiler toolchain built on Clang/LLVM. The Python package <a href="https://pypi.org/project/ziglang/" target="_blank">`ziglang`</a> bundles the entire Zig binary distribution. When you install it, the compiler is available as `python-zig` (not `zig` — more on that in a moment).
+<a href="https://ziglang.org/" target="_blank">Zig</a> is a systems programming language, but it ships with a full C/C++ compiler toolchain built on Clang/LLVM. The Python package <a href="https://pypi.org/project/ziglang/" target="_blank">`ziglang`</a> bundles the entire Zig binary distribution. When you install it, the compiler is available as `python-zig`.
 
 ```
 uv add ziglang
@@ -28,116 +28,215 @@ uv run python-zig cc --version
 
 No system dependencies. No Xcode. No MSVC. Works on macOS, Linux, and Windows. Works inside virtualenvs and Docker containers with no extra setup.
 
-`python-zig cc` is a full Clang frontend. It compiles C and C++ to native machine code, handles preprocessor directives, links object files — everything you'd expect from `gcc` or `clang`.
-
-> **Why `python-zig` and not `zig`?** The `ziglang` PyPI package installs under the name `python-zig` to avoid colliding with a system-installed `zig` binary. If you want `zig` on your PATH, symlink it or use the system install.
+> **Why `python-zig` and not `zig`?** The `ziglang` PyPI package installs under the name `python-zig` to avoid colliding with a system-installed `zig` binary.
 
 ---
 
-## Compiling a Cython extension
+## Cython's compilation pipeline
 
-Cython translates `.pyx` files into C, then expects you to compile that C into a shared library. Here's the full path using `python-zig cc`.
+Cython is a compiler, not an interpreter. It takes `.pyx` files — Python with optional static type annotations — and produces native C extension modules. Understanding the pipeline is the key to understanding where `python-zig cc` fits.
 
-Take any Cython file:
+```
+fast_math.pyx
+     │
+     │  cython (transpiler)
+     ▼
+fast_math.c          ← generated C, ~2000 lines for a trivial file
+     │
+     │  C compiler (gcc / clang / python-zig cc)
+     ▼
+fast_math.so         ← shared library, loadable by Python
+     │
+     │  import fast_math
+     ▼
+Python module
+```
+
+The Cython transpiler step is pure Python — no compiler needed. The C compiler step is where you normally need a system toolchain. That's the step `python-zig cc` replaces.
+
+### What Cython actually does to your code
+
+The more type information you give Cython, the less it has to go through the Python object system. Here's the same function at three levels:
 
 ```python
-# fast_math.pyx
+# Level 1: plain Python function — Cython compiles this but gets no speedup
+def add(a, b):
+    return a + b
+```
+
+```python
+# Level 2: typed arguments — Cython generates direct C arithmetic, no PyObject overhead
 def add(double a, double b) -> double:
     return a + b
 ```
 
+```python
+# Level 3: cdef function — not callable from Python, pure C calling convention
+cdef double add(double a, double b):
+    return a + b
+```
+
+Level 2 is the sweet spot for extension modules: callable from Python, but the hot path runs as C. The generated C for level 2 looks roughly like this (simplified):
+
+```c
+static PyObject *__pyx_pw_9fast_math_1add(PyObject *self, PyObject *args) {
+    double a, b;
+    // unpack Python args into C doubles
+    if (!PyArg_ParseTuple(args, "dd", &a, &b)) return NULL;
+    // the actual computation: pure C, no Python overhead
+    double result = a + b;
+    // box the result back into a Python float
+    return PyFloat_FromDouble(result);
+}
+```
+
+The argument unpacking and result boxing happen once per call. The computation itself — `a + b` — is a single CPU instruction. That's the Cython deal: you pay Python overhead at the boundary, you pay nothing inside.
+
+A more realistic example with a tight loop — the kind Cython is actually for:
+
+```python
+# nbody_step.pyx
+import cython
+from libc.math cimport sqrt
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def advance(double dt, int n,
+            double[:, :] pos,    # typed memoryview — direct C array access
+            double[:, :] vel,
+            double[:] mass):
+    cdef int i, j
+    cdef double dx, dy, dz, dist, mag
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            dx = pos[i, 0] - pos[j, 0]
+            dy = pos[i, 1] - pos[j, 1]
+            dz = pos[i, 2] - pos[j, 2]
+            dist = sqrt(dx*dx + dy*dy + dz*dz)
+            mag = dt / (dist * dist * dist)
+
+            vel[i, 0] -= dx * mass[j] * mag
+            vel[j, 0] += dx * mass[i] * mag
+            # ...
+```
+
+`cdef` variables are C locals. `double[:, :]` is a typed memoryview — Cython accesses it as a raw C pointer, no `PyObject_GetItem` calls. `from libc.math cimport sqrt` links to C's `sqrt` directly, skipping Python's `math.sqrt` dispatch. This is the code that gets ~90x over CPython.
+
+---
+
+## Compiling it with python-zig cc
+
 **Step 1: Translate to C**
 
 ```bash
-uv add cython
-uv run cython fast_math.pyx --output-file fast_math.c
+uv add cython ziglang
+uv run cython nbody_step.pyx --output-file nbody_step.c
 ```
+
+The `--annotate` flag is worth knowing: `uv run cython nbody_step.pyx --annotate` produces an HTML file highlighting every line by how much Python overhead remains. Yellow lines call into the Python C API. White lines are pure C. If your hot loop is yellow, you're leaving performance on the table.
 
 **Step 2: Compile with python-zig cc**
 
-You need the Python include path and the right flags for a shared library. On macOS, there's one extra required flag: `-undefined dynamic_lookup`. Python extensions are loaded dynamically — the Python symbols are resolved at load time by the interpreter, not at link time. Without this flag, the linker errors out on every single `_PyDict_New`, `_PyErr_SetString`, etc.
-
 ```bash
-uv run python-zig cc fast_math.c \
+uv run python-zig cc nbody_step.c \
   -I$(uv run python -c "import sysconfig; print(sysconfig.get_path('include'))") \
   -shared \
   -fPIC \
   -O2 \
   -undefined dynamic_lookup \
-  -o fast_math.so
+  -o nbody_step.so
 ```
 
-On Linux, `-undefined dynamic_lookup` is not needed — the linker handles it differently. The macOS requirement is a platform quirk, not a zig quirk; the same flag is required with `clang` or `gcc`.
+Flags explained:
+- `-I$(...)` — Python's header files (`Python.h`, `numpy/arrayobject.h`, etc.)
+- `-shared -fPIC` — produce a shared library, not an executable
+- `-O2` — optimization level; Cython's generated C benefits significantly from this
+- `-undefined dynamic_lookup` — macOS only: Python symbols resolve at load time, not link time. On Linux this flag is not needed.
 
 **Step 3: Import it**
 
 ```python
-import fast_math
-print(fast_math.add(1.0, 2.0))  # 3.0
+import numpy as np
+import nbody_step
+
+pos = np.array([[...]], dtype=np.float64)
+vel = np.array([[...]], dtype=np.float64)
+mass = np.array([...], dtype=np.float64)
+
+nbody_step.advance(0.01, len(mass), pos, vel, mass)
 ```
+
+No `setup.py`. No `pyproject.toml`. No `python setup.py build_ext --inplace`. Cython to C to `.so` in two commands.
 
 ---
 
-## The setup.py path — use zigcc instead
+## The pyproject.toml path — use zigcc
 
-If you try `CC="python-zig cc" python setup.py build_ext --inplace`, you'll hit a crash. setuptools passes `-LModules/_hacl` (a relative path artifact from CPython's own build) to the linker, and `python-zig cc` segfaults on it.
+For a real package you want a proper build, and you want `CC=` to work. If you try `CC="python-zig cc"`, setuptools passes `-LModules/_hacl` (a relative path from CPython's own build) to the linker and `python-zig cc` segfaults on it.
 
-This is a known class of problem with `zig cc` in real build systems — it doesn't silently ignore flags it doesn't understand, so stale or irrelevant linker args passed by `setuptools`/`cmake`/`cargo` cause failures.
-
-That's exactly what <a href="https://pypi.org/project/zigcc/" target="_blank">`zigcc`</a> was built to solve. It's a thin Python wrapper that filters out problematic flags before passing them to `zig cc`:
+This is a known class of problem: `zig cc` doesn't silently ignore flags it doesn't understand. <a href="https://pypi.org/project/zigcc/" target="_blank">`zigcc`</a> is a thin wrapper that filters them out:
 
 ```bash
-uv add ziglang zigcc
+uv add --dev ziglang zigcc
 ```
 
-Now the `CC=` path works:
+```toml
+# pyproject.toml
+[build-system]
+requires = ["setuptools", "cython"]
+build-backend = "setuptools.backends.legacy:build"
+
+[tool.setuptools.ext-modules]
+# setuptools picks up Extension objects from setup.py
+```
+
+```python
+# setup.py
+from setuptools import setup
+from Cython.Build import cythonize
+
+setup(ext_modules=cythonize("nbody_step.pyx", compiler_directives={
+    "boundscheck": False,
+    "wraparound": False,
+    "cdivision": True,
+}))
+```
 
 ```bash
 CC="zigcc" CXX="zigcxx" uv run python setup.py build_ext --inplace
 ```
 
-`zigcc` maintains a blacklist of flags that are known to cause `zig cc` to fail — things like `-Wl,-dylib`, relative library paths, and flags with no zig equivalent. It also handles target triple conversion for cross-compilation with Rust and Go. Think of `ziglang` as the engine and `zigcc` as the adapter that makes it fit real build systems.
+`zigcc` blacklists the problematic flags and passes everything else through to `zig cc`. The `compiler_directives` in `cythonize()` are worth setting for production: `boundscheck=False` removes array index checks, `wraparound=False` removes negative index handling, `cdivision=True` uses C division semantics — together they can double the speed of tight loops.
 
 ---
 
-## Any C project
+## Why this matters
 
-This isn't Cython-specific. For any C project:
+The usual developer setup story for a Cython project:
 
-```bash
-uv add ziglang
-uv run python-zig cc myfile.c -o myprogram
-```
-
-Cross-compilation is where zig gets genuinely unusual. You can target a different platform from your current machine:
-
-```bash
-# compile for Linux x86_64, from macOS arm64
-python-zig cc -target x86_64-linux-musl myfile.c -o myfile-linux-x64
-```
-
-That's something `gcc` and `clang` require separate toolchain installs to do. The entire target library is bundled in the single binary you got from PyPI.
-
----
-
-## Why this matters in Python projects
-
-The most common reason you need a C compiler in a Python project is native extensions — and Cython is the most common way to write them. The usual developer setup story for a Cython project is:
-
-- macOS: install Xcode CLT (2GB download), pray the SDK version matches
-- Linux: `apt install gcc` (fine, but not in every container)
+- macOS: install Xcode CLT (2GB), pray the SDK version matches your Python build
+- Linux: `apt install gcc python3-dev` (manageable, but not in every container)
 - Windows: install Visual Studio Build Tools (multi-GB, confusing installer)
 
-With `ziglang` and `zigcc` as dev dependencies, the story becomes the same command on every platform — no system compiler required, CI containers don't need `apt install build-essential`, Docker images stay smaller.
+With `ziglang` and `zigcc` as dev dependencies, the story is `uv sync` on every platform. No system compiler. CI containers don't need `apt install build-essential`. The build is reproducible across machines because the compiler version is pinned in `uv.lock`.
 
 ---
 
-## Caveats worth knowing
+## Caveats
 
-**`ziglang` installs as `python-zig`, not `zig`.** This is intentional to avoid shadowing system installs. `zigcc` calls `zig` from PATH, so if you use `zigcc` you need either system zig or to have `python-zig` symlinked/aliased to `zig`.
+**`ziglang` installs as `python-zig`, not `zig`.** `zigcc` calls `zig` from PATH, so pairing them requires either system zig or a `python-zig` alias.
 
-**`zigcc` is a flag-filtering wrapper, not a bundler.** It depends on `zig` being on PATH separately. The two packages solve different problems: `ziglang` gives you the binary, `zigcc` makes it compatible with messy build systems.
+**`zigcc` is a flag-filtering wrapper, not a bundler.** `ziglang` gives you the binary. `zigcc` makes it compatible with real build systems. They solve different problems.
 
-**On macOS, `-undefined dynamic_lookup` is required for Python extensions.** This isn't zig-specific — it's how all Python extensions are linked on macOS. The manual `python-zig cc` command in this post includes it; `zigcc` + setuptools handles it automatically via the platform's distutils config.
+**On macOS, `-undefined dynamic_lookup` is required for Python extensions.** Not a zig quirk — the same flag is required with `clang`. `zigcc` + setuptools handles it automatically. The manual `python-zig cc` command requires it explicitly.
 
-**The `ziglang` PyPI package lags Zig releases slightly.** Check <a href="https://pypi.org/project/ziglang/#history" target="_blank">the release history</a> if you need a specific version.
+**If your Cython extension uses NumPy, add the NumPy include path:**
+
+```bash
+uv run python-zig cc nbody_step.c \
+  -I$(uv run python -c "import sysconfig; print(sysconfig.get_path('include'))") \
+  -I$(uv run python -c "import numpy; print(numpy.get_include())") \
+  -shared -fPIC -O2 -undefined dynamic_lookup \
+  -o nbody_step.so
+```
