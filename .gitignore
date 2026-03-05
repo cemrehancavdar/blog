@@ -8,3 +8,5 @@ dist/
 uv.lock
 .agent/
 .wrangler/
+.rodney/
+post-preview.png
