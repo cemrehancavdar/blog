@@ -5,12 +5,12 @@ type: post
 tags: [python, cython, zig, c, compiler, build]
 draft: true
 subtitle: "the C compiler you already have"
-description: "You can pip install ziglang and immediately use it as a drop-in C compiler. No Xcode CLT version hell, no MSVC setup, no toolchain hunting. Here's how to use it to compile Cython extensions — and any other C project."
+description: "You can uv add ziglang and immediately use it as a drop-in C compiler. No Xcode CLT version hell, no MSVC setup, no toolchain hunting. Here's how to use it to compile Cython extensions — and any other C project."
 ---
 
 You need a C compiler. You're on Python. The usual path is: install Xcode Command Line Tools on Mac, hope the version matches what your package expects, fight it for 20 minutes, maybe succeed.
 
-There's a shorter path: `pip install ziglang`.
+There's a shorter path: `uv add ziglang`.
 
 ---
 
@@ -19,10 +19,10 @@ There's a shorter path: `pip install ziglang`.
 <a href="https://ziglang.org/" target="_blank">Zig</a> is a systems programming language, but it ships with a full C/C++ compiler toolchain built on Clang/LLVM. The Python package <a href="https://pypi.org/project/ziglang/" target="_blank">`ziglang`</a> bundles the entire Zig binary distribution. When you install it, the compiler is available as `python-zig` (not `zig` — more on that in a moment).
 
 ```
-pip install ziglang
-python-zig version
+uv add ziglang
+uv run python-zig version
 # 0.15.2
-python-zig cc --version
+uv run python-zig cc --version
 # clang version 20.1.2
 ```
 
@@ -49,8 +49,8 @@ def add(double a, double b) -> double:
 **Step 1: Translate to C**
 
 ```bash
-pip install cython
-cython fast_math.pyx --output-file fast_math.c
+uv add cython
+uv run cython fast_math.pyx --output-file fast_math.c
 ```
 
 **Step 2: Compile with python-zig cc**
@@ -58,8 +58,8 @@ cython fast_math.pyx --output-file fast_math.c
 You need the Python include path and the right flags for a shared library. On macOS, there's one extra required flag: `-undefined dynamic_lookup`. Python extensions are loaded dynamically — the Python symbols are resolved at load time by the interpreter, not at link time. Without this flag, the linker errors out on every single `_PyDict_New`, `_PyErr_SetString`, etc.
 
 ```bash
-python-zig cc fast_math.c \
-  -I$(python -c "import sysconfig; print(sysconfig.get_path('include'))") \
+uv run python-zig cc fast_math.c \
+  -I$(uv run python -c "import sysconfig; print(sysconfig.get_path('include'))") \
   -shared \
   -fPIC \
   -O2 \
@@ -87,13 +87,13 @@ This is a known class of problem with `zig cc` in real build systems — it does
 That's exactly what <a href="https://pypi.org/project/zigcc/" target="_blank">`zigcc`</a> was built to solve. It's a thin Python wrapper that filters out problematic flags before passing them to `zig cc`:
 
 ```bash
-pip install ziglang zigcc
+uv add ziglang zigcc
 ```
 
 Now the `CC=` path works:
 
 ```bash
-CC="zigcc" CXX="zigcxx" python setup.py build_ext --inplace
+CC="zigcc" CXX="zigcxx" uv run python setup.py build_ext --inplace
 ```
 
 `zigcc` maintains a blacklist of flags that are known to cause `zig cc` to fail — things like `-Wl,-dylib`, relative library paths, and flags with no zig equivalent. It also handles target triple conversion for cross-compilation with Rust and Go. Think of `ziglang` as the engine and `zigcc` as the adapter that makes it fit real build systems.
@@ -105,8 +105,8 @@ CC="zigcc" CXX="zigcxx" python setup.py build_ext --inplace
 This isn't Cython-specific. For any C project:
 
 ```bash
-pip install ziglang
-python-zig cc myfile.c -o myprogram
+uv add ziglang
+uv run python-zig cc myfile.c -o myprogram
 ```
 
 Cross-compilation is where zig gets genuinely unusual. You can target a different platform from your current machine:
