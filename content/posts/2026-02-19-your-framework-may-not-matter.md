@@ -10,7 +10,7 @@ description: "I instrumented a FastAPI app and measured where time actually goes
 
 Last week I [benchmarked four web frameworks](/2026/02/10/framework-benchmark/) and found that BlackSheep is 2x faster than FastAPI. A Rust-based server and JSON serializer pushed Python within striking distance of Go. Impressive numbers.
 
-But I kept thinking — does any of this matter? Those benchmarks measured localhost throughput with no database and no network. That's not what users experience. A real API request crosses the internet, hits a framework, queries a database through an ORM, serializes the result, and travels back. How much of that time is actually the framework?
+But I kept thinking: does any of this matter? Those benchmarks measured localhost throughput with no database and no network. That's not what users experience. A real API request crosses the internet, hits a framework, queries a database through an ORM, serializes the result, and travels back. How much of that time is actually the framework?
 
 So I built a real app, deployed it, and measured every phase.
 
@@ -18,18 +18,18 @@ So I built a real app, deployed it, and measured every phase.
 
 ## The App
 
-A book catalog API. FastAPI + SQLAlchemy 2.0 (async) + asyncpg + Uvicorn — the standard Python stack that a developer following the FastAPI docs would use. No exotic dependencies, no optimization tricks.
+A book catalog API. FastAPI + SQLAlchemy 2.0 (async) + asyncpg + Uvicorn. The standard Python stack that a developer following the FastAPI docs would use. No exotic dependencies, no optimization tricks.
 
-Three tables: **Publisher** -> **Author** -> **Book**. Seeded with 4,215 real books from the Open Library API — Agatha Christie, Dostoevsky, Penguin Books, real data with real-world cardinality.
+Three tables: **Publisher** -> **Author** -> **Book**. Seeded with 4,215 real books from the Open Library API: Agatha Christie, Dostoevsky, Penguin Books, real data with real-world cardinality.
 
 Deployed to <a href="https://fly.io" target="_blank">Fly.io</a> on a shared-cpu-1x machine with 512MB RAM and Postgres 17, both in Amsterdam. The cheapest setup you'd use for a side project.
 
 Four endpoints:
 
-1. **`GET /api/health`** — returns `{"status": "ok"}`. No database, no ORM, no serialization. Pure framework overhead.
-2. **`GET /api/books/{id}`** — single book with author details. 4 SQL queries via `selectinload`.
-3. **`GET /api/books?page=1&per_page=100`** — 100 books with full details. 5 queries, `selectinload`.
-4. **`GET /api/books/n-plus-one?page=1&per_page=100`** — same data as #3, but with the classic N+1 bug. **302 queries** (2 + 100 x 3 individual SELECTs).
+1. **`GET /api/health`** returns `{"status": "ok"}`. No database, no ORM, no serialization. Pure framework overhead.
+2. **`GET /api/books/{id}`** single book with author details. 4 SQL queries via `selectinload`.
+3. **`GET /api/books?page=1&per_page=100`** 100 books with full details. 5 queries, `selectinload`.
+4. **`GET /api/books/n-plus-one?page=1&per_page=100`** same data as #3, but with the classic N+1 bug. **302 queries** (2 + 100 x 3 individual SELECTs).
 
 Endpoint #4 is the "what not to do" scenario. Same response, same data, but instead of letting SQLAlchemy batch the loads, each book triggers separate queries for its author, publisher, and sibling books.
 
@@ -43,7 +43,7 @@ I ran 200 requests per endpoint from Turkey to Amsterdam (~57ms baseline RTT), w
 
 ## Where Does Server Time Go?
 
-Let's start with what happens inside the server — no network, just the work Python does.
+Let's start with what happens inside the server. No network, just the work Python does.
 
 <style>
 .lc-chart { margin: 24px 0; }
@@ -172,7 +172,7 @@ Let's start with what happens inside the server — no network, just the work Py
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">Health check (no DB, no work) <span class="lc-meta">— 0.3ms server, 0 queries</span></div>
+  <div class="lc-label">Health check (no DB, no work) <span class="lc-meta">0.3ms server, 0 queries</span></div>
   <div class="lc-bar">
     <span class="lc-db lc-narrow" style="width:0%" data-tip="DB Driver: 0ms (0%)"></span>
     <span class="lc-orm lc-narrow" style="width:0%" data-tip="ORM: 0ms (0%)"></span>
@@ -183,7 +183,7 @@ Let's start with what happens inside the server — no network, just the work Py
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">Single book + author <span class="lc-meta">— 11.5ms server, 4 queries</span></div>
+  <div class="lc-label">Single book + author <span class="lc-meta">11.5ms server, 4 queries</span></div>
   <div class="lc-bar">
     <span class="lc-db" style="width:52.1%" data-tip="DB Driver: 52%">6.0ms</span>
     <span class="lc-orm" style="width:39.7%" data-tip="ORM: 40%">4.6ms</span>
@@ -194,7 +194,7 @@ Let's start with what happens inside the server — no network, just the work Py
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">100 books, optimized <span class="lc-meta">— 30.2ms server, 5 queries</span></div>
+  <div class="lc-label">100 books, optimized <span class="lc-meta">30.2ms server, 5 queries</span></div>
   <div class="lc-bar">
     <span class="lc-db" style="width:35.1%" data-tip="DB Driver: 35%">10.6ms</span>
     <span class="lc-orm" style="width:46.9%" data-tip="ORM: 47%">14.2ms</span>
@@ -205,7 +205,7 @@ Let's start with what happens inside the server — no network, just the work Py
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">100 books, N+1 queries <span class="lc-meta">— 491.9ms server, 302 queries</span></div>
+  <div class="lc-label">100 books, N+1 queries <span class="lc-meta">491.9ms server, 302 queries</span></div>
   <div class="lc-bar">
     <span class="lc-db" style="width:67.2%" data-tip="DB Driver: 67%">330.4ms</span>
     <span class="lc-orm" style="width:30.9%" data-tip="ORM: 31%">152.1ms</span>
@@ -216,17 +216,17 @@ Let's start with what happens inside the server — no network, just the work Py
 </div>
 </div>
 
-*Hover over any segment for percentages. Bars don't sum to exactly 100% — a small residual (1-3%) falls between the timed sections.*
+*Hover over any segment for percentages. Bars don't sum to exactly 100%. A small residual (1-3%) falls between the timed sections.*
 
-The health check tells the story immediately. When there's no database, the framework *is* the server — 82% of 0.3ms. But the moment you add real work, it disappears. For the optimized 100-book query, the DB driver and ORM together account for 82% of server time. Serialization is 10%. The framework — FastAPI's routing, middleware, dependency injection — is 2-3%. For the single book endpoint, it's 4%.
+The health check tells the story immediately. When there's no database, the framework *is* the server, 82% of 0.3ms. But the moment you add real work, it disappears. For the optimized 100-book query, the DB driver and ORM together account for 82% of server time. Serialization is 10%. The framework (FastAPI's routing, middleware, dependency injection) is 2-3%. For the single book endpoint, it's 4%.
 
-The N+1 scenario is brutal. Same data, same response, but 302 queries instead of 5. Server time goes from 30ms to 492ms — a **16x increase** — because each of those 302 queries pays a round-trip to Postgres and an ORM hydration cost.
+The N+1 scenario is brutal. Same data, same response, but 302 queries instead of 5. Server time goes from 30ms to 492ms, a **16x increase**, because each of those 302 queries pays a round-trip to Postgres and an ORM hydration cost.
 
 But this is still only the server's perspective. What does the user actually experience?
 
 ## Now Zoom Out
 
-Same four endpoints, but now we include what happens before and after the server: DNS, TCP, TLS, request travel, response travel — all lumped together as "Network."
+Same four endpoints, but now we include what happens before and after the server: DNS, TCP, TLS, request travel, response travel, all lumped together as "Network."
 
 Pick a distance to see how it changes the picture:
 
@@ -249,7 +249,7 @@ Pick a distance to see how it changes the picture:
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">Health check (no DB, no work) <span class="lc-meta" id="a2-s0-meta">— 69.6ms total</span></div>
+  <div class="lc-label">Health check (no DB, no work) <span class="lc-meta" id="a2-s0-meta">69.6ms total</span></div>
   <div class="lc-bar">
     <span class="lc-network" id="a2-s0-net" style="width:99.4%" data-tip="Network: 99%">69.2ms</span>
     <span class="lc-db lc-narrow" id="a2-s0-db" style="width:0%" data-tip="DB Driver: 0ms (0%)"></span>
@@ -261,7 +261,7 @@ Pick a distance to see how it changes the picture:
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">Single book + author <span class="lc-meta" id="a2-s1-meta">— 68.8ms total</span></div>
+  <div class="lc-label">Single book + author <span class="lc-meta" id="a2-s1-meta">68.8ms total</span></div>
   <div class="lc-bar">
     <span class="lc-network" id="a2-s1-net" style="width:82.6%" data-tip="Network: 83%">56.9ms</span>
     <span class="lc-db" id="a2-s1-db" style="width:8.7%" data-tip="DB Driver: 9%">6.0ms</span>
@@ -273,7 +273,7 @@ Pick a distance to see how it changes the picture:
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">100 books, optimized <span class="lc-meta" id="a2-s2-meta">— 97.0ms total</span></div>
+  <div class="lc-label">100 books, optimized <span class="lc-meta" id="a2-s2-meta">97.0ms total</span></div>
   <div class="lc-bar">
     <span class="lc-network" id="a2-s2-net" style="width:68.6%" data-tip="Network: 69%">66.6ms</span>
     <span class="lc-db" id="a2-s2-db" style="width:10.9%" data-tip="DB Driver: 11%">10.6ms</span>
@@ -285,7 +285,7 @@ Pick a distance to see how it changes the picture:
 </div>
 
 <div class="lc-row">
-  <div class="lc-label">100 books, N+1 queries <span class="lc-meta" id="a2-s3-meta">— 613.2ms total</span></div>
+  <div class="lc-label">100 books, N+1 queries <span class="lc-meta" id="a2-s3-meta">613.2ms total</span></div>
   <div class="lc-bar">
     <span class="lc-network" id="a2-s3-net" style="width:13.4%" data-tip="Network: 13%">82.2ms</span>
     <span class="lc-db" id="a2-s3-db" style="width:53.9%" data-tip="DB Driver: 54%">330.4ms</span>
@@ -299,17 +299,17 @@ Pick a distance to see how it changes the picture:
 <div class="lc-fw-callout" id="a2-fw-callout">Framework is <strong id="a2-fw-pct">0.2–0.9%</strong> of total response time</div>
 </div>
 
-*Hover over any segment for percentages. Server timings are constant — only network changes.*
+*Hover over any segment for percentages. Server timings are constant, only network changes.*
 
-There it is. The health check — where the framework has nothing to do except route and respond — is **99% network**. The server finishes in 0.3ms. The user waits 70ms.
+There it is. The health check, where the framework has nothing to do except route and respond, is **99% network**. The server finishes in 0.3ms. The user waits 70ms.
 
-For a single book lookup, **83% of what the user waits for is the network**. The entire server — framework, ORM, database, serialization, JSON encoding — is the remaining 17%. The framework specifically is 0.7%.
+For a single book lookup, **83% of what the user waits for is the network**. The entire server (framework, ORM, database, serialization, JSON encoding) is the remaining 17%. The framework specifically is 0.7%.
 
 For 100 books with proper queries, network is 69%. The server does more work (30ms vs 12ms), but the user still spends most of their time waiting for packets to cross the internet.
 
-These numbers default to my setup — I live in Ankara, Turkey, and my closest Fly.io region is Amsterdam. Try the presets above to see how distance changes the picture. Even in the best case — same building, 5ms — network is still 30% of a single book lookup. And most SaaS products aren't running multi-region deployments with edge nodes. They have one server in one region.
+These numbers default to my setup. I live in Ankara, Turkey, and my closest Fly.io region is Amsterdam. Try the presets above to see how distance changes the picture. Even in the best case (same building, 5ms) network is still 30% of a single book lookup. And most SaaS products aren't running multi-region deployments with edge nodes. They have one server in one region.
 
-The N+1 scenario flips everything. Network drops to 13% — not because the network got faster, but because the server got so slow (492ms) that it dwarfs the network time. This is the only scenario where server-side code meaningfully impacts user experience. And the cause isn't the framework — it's 302 queries instead of 5.
+The N+1 scenario flips everything. Network drops to 13%, not because the network got faster, but because the server got so slow (492ms) that it dwarfs the network time. This is the only scenario where server-side code meaningfully impacts user experience. And the cause isn't the framework, it's 302 queries instead of 5.
 
 ## Framework Overhead Across All Scenarios
 
@@ -320,7 +320,7 @@ The N+1 scenario flips everything. Network drops to 13% — not because the netw
 | 100 books (optimized) | 97.0ms | 0.7ms | 0.8% |
 | 100 books (N+1) | 613.2ms | 1.3ms | 0.2% |
 
-The health check is the best case for the framework — no database, no ORM, no serialization. The server does almost nothing. And still, framework overhead is 0.2ms out of a 70ms request. FastAPI's routing, middleware, dependency injection, and ASGI handling cost 0.2-1.3ms across all scenarios. That's the thing benchmarks compare when they say "FastAPI vs BlackSheep" or "Python vs Go." The thing that accounts for less than 1% of what users experience.
+The health check is the best case for the framework: no database, no ORM, no serialization. The server does almost nothing. And still, framework overhead is 0.2ms out of a 70ms request. FastAPI's routing, middleware, dependency injection, and ASGI handling cost 0.2-1.3ms across all scenarios. That's the thing benchmarks compare when they say "FastAPI vs BlackSheep" or "Python vs Go." The thing that accounts for less than 1% of what users experience.
 
 In my [previous benchmark](/2026/02/10/framework-benchmark/), BlackSheep was 2x faster than FastAPI. That 2x difference applies to 0.7% of the total response time. Switching frameworks would save roughly 0.25ms on a 69ms request.
 
@@ -334,17 +334,17 @@ Let's say your API gets 1 million requests per day. That sounds like a lot. It's
 | 1,000,000 | 11.6 | 35 |
 | 10,000,000 | 115.7 | 347 |
 
-Levels.fyi — a site with 1-2 million monthly uniques and over $1M ARR — runs one of its most trafficked services on <a href="https://www.levels.fyi/blog/scaling-to-millions-with-google-sheets.html" target="_blank">a single Node.js instance serving 60K requests per hour</a>. That's 17 req/s. FastAPI handles 46,000 req/s on a single worker in my benchmarks. You have roughly 2,700x headroom.
+Levels.fyi, a site with 1-2 million monthly uniques and over $1M ARR, runs one of its most trafficked services on <a href="https://www.levels.fyi/blog/scaling-to-millions-with-google-sheets.html" target="_blank">a single Node.js instance serving 60K requests per hour</a>. That's 17 req/s. FastAPI handles 46,000 req/s on a single worker in my benchmarks. You have roughly 2,700x headroom.
 
-In 2016, Stack Overflow served <a href="https://nickcraver.com/blog/2016/02/17/stack-overflow-the-architecture-2016-edition/" target="_blank">209 million HTTP requests per day</a> — about 2,400 req/s average — on 9 web servers. Nick Craver said they'd unintentionally tested running on a single server, and it worked.
+In 2016, Stack Overflow served <a href="https://nickcraver.com/blog/2016/02/17/stack-overflow-the-architecture-2016-edition/" target="_blank">209 million HTTP requests per day</a> (about 2,400 req/s average) on 9 web servers. Nick Craver said they'd unintentionally tested running on a single server, and it worked.
 
 Framework throughput differences don't matter when your actual traffic is three orders of magnitude below capacity.
 
 ## What I Didn't Measure
 
-This is a sequential measurement from a single client — no concurrent load. Under concurrency, connection pooling, async scheduling, and GIL contention could change the server-side breakdown. The "Framework" bucket lumps together Uvicorn, Starlette, and FastAPI — I didn't separate them. "Network" lumps DNS, TLS, TCP, and raw packet travel. Response sizes are pre-compression (the real responses would be smaller over gzip).
+This is a sequential measurement from a single client, no concurrent load. Under concurrency, connection pooling, async scheduling, and GIL contention could change the server-side breakdown. The "Framework" bucket lumps together Uvicorn, Starlette, and FastAPI. I didn't separate them. "Network" lumps DNS, TLS, TCP, and raw packet travel. Response sizes are pre-compression (the real responses would be smaller over gzip).
 
-At scale, a faster framework means fewer servers — that's real cost savings. But "at scale" means hundreds of thousands of requests per second, not millions per day. And long before you get there, you'll have optimized your queries, added caching, moved to handwritten SQL, and maybe even forked your runtime — <a href="https://github.com/facebookincubator/cinder" target="_blank">Facebook built their own Python</a> before they worried about framework overhead.
+At scale, a faster framework means fewer servers, that's real cost savings. But "at scale" means hundreds of thousands of requests per second, not millions per day. And long before you get there, you'll have optimized your queries, added caching, moved to handwritten SQL, and maybe even forked your runtime. <a href="https://github.com/facebookincubator/cinder" target="_blank">Facebook built their own Python</a> before they worried about framework overhead.
 
 All measurements: 200 samples each, medians, from Turkey to Amsterdam. The raw data is in the repository.
 
@@ -352,7 +352,7 @@ All measurements: 200 samples each, medians, from Turkey to Amsterdam. The raw d
 
 **Deploy closer to your users.** For well-written queries, 69-83% of response time is packets crossing the internet. No framework optimization changes this. If your server is in Amsterdam and your users are in Ankara, they're waiting 57ms before your code even runs. Move the server, or put a cache at the edge.
 
-**Fix your queries, not your framework.** The N+1 bug turned a 97ms response into a 613ms one — 6.3x slower — and framework overhead was still only 0.2%. Switching from FastAPI to BlackSheep would save 0.25ms. Fixing the N+1 bug saves 516ms. Profile your queries. Add `selectinload`. Use `EXPLAIN ANALYZE`. That's where the seconds are.
+**Fix your queries, not your framework.** The N+1 bug turned a 97ms response into a 613ms one, 6.3x slower, and framework overhead was still only 0.2%. Switching from FastAPI to BlackSheep would save 0.25ms. Fixing the N+1 bug saves 516ms. Profile your queries. Add `selectinload`. Use `EXPLAIN ANALYZE`. That's where the seconds are.
 
 **Pick your framework for everything except speed.** Framework benchmarks compare the one component that doesn't matter (0.2-0.8% of total time) under conditions that don't exist (localhost, no database, no network). Pick for developer experience, documentation, ecosystem, and hiring. The framework that lets you ship faster is the fast framework.
 
@@ -360,7 +360,7 @@ If you want to see what actually makes a website fast in practice, Wes Bos has <
 
 ---
 
-Benchmarking is hard. I'm sure I got something wrong, missed an important variable, or made an assumption that doesn't hold. All the code, measurement scripts, and raw timing data are in the <a href="https://github.com/cemrehancavdar/api-lifecycle" target="_blank">repository</a> — please try to break it. If you find a flaw in the methodology, a timing error, or a scenario that would change the conclusions, I genuinely want to hear about it.
+Benchmarking is hard. I'm sure I got something wrong, missed an important variable, or made an assumption that doesn't hold. All the code, measurement scripts, and raw timing data are in the <a href="https://github.com/cemrehancavdar/api-lifecycle" target="_blank">repository</a>. Please try to break it. If you find a flaw in the methodology, a timing error, or a scenario that would change the conclusions, I genuinely want to hear about it.
 
 
 <script>
@@ -409,7 +409,7 @@ Benchmarking is hard. I'm sure I got something wrong, missed an important variab
       fwPcts.push((s.fw / total) * 100);
 
       var meta = document.getElementById("a2-" + s.key + "-meta");
-      if (meta) meta.textContent = "— " + fmt(total) + "ms total";
+      if (meta) meta.textContent = fmt(total) + "ms total";
     });
 
     var fwMin = Math.min.apply(null, fwPcts);

@@ -7,7 +7,7 @@ draft: false
 description: "Docker benchmarks comparing Go, Bun, and Python web frameworks. All frameworks get 2 CPUs and 2 workers. Python is faster than you think."
 ---
 
-I always felt like JavaScript and Go are the alternative languages for Python — I wouldn't compare Python to Rust or Zig. So when I keep seeing Gin vs Elysia benchmarks, I wanted to throw Python into the mix. FastAPI says it's fast right in the name — let's find out.
+I always felt like JavaScript and Go are the alternative languages for Python. I wouldn't compare Python to Rust or Zig. So when I keep seeing Gin vs Elysia benchmarks, I wanted to throw Python into the mix. FastAPI says it's fast right in the name. Let's find out.
 
 Four frameworks, three languages, same Docker constraints, same endpoints.
 
@@ -30,10 +30,10 @@ The "2 workers" part is important. Go uses `GOMAXPROCS=2`, Python uses 2 uvicorn
 
 Each endpoint does progressively more work:
 
-- `/plaintext` — return `"Hello, World!"` (raw I/O)
-- `/json` — return `{"message": "Hello, World!"}` (serialization)
-- `/user/42` — parse a URL param, return `{"id": "42", "name": "User 42"}` (routing)
-- `POST /validate` — parse JSON body, validate fields, return result (real-world work)
+- `/plaintext` return `"Hello, World!"` (raw I/O)
+- `/json` return `{"message": "Hello, World!"}` (serialization)
+- `/user/42` parse a URL param, return `{"id": "42", "name": "User 42"}` (routing)
+- `POST /validate` parse JSON body, validate fields, return result (real-world work)
 
 ## The Contenders
 
@@ -74,7 +74,7 @@ async def validate(body: UserInput) -> dict:
     return {"name": body.name, "age": body.age, "valid": True}
 ```
 
-The crowd favorite. Pydantic models give you validation, serialization, and OpenAPI docs in one shot. It's the most productive framework here — but that productivity has a cost at runtime, which we'll see in the numbers.
+The crowd favorite. Pydantic models give you validation, serialization, and OpenAPI docs in one shot. It's the most productive framework here, but that productivity has a cost at runtime, which we'll see in the numbers.
 
 ### Gin (Go)
 
@@ -141,7 +141,7 @@ func main() {
 }
 ```
 
-Gin is terse. Struct tags handle validation. The `gin.H{}` shorthand for map literals keeps handlers compact. Go's goroutine scheduler makes concurrency almost invisible — you just set `GOMAXPROCS` and everything scales.
+Gin is terse. Struct tags handle validation. The `gin.H{}` shorthand for map literals keeps handlers compact. Go's goroutine scheduler makes concurrency almost invisible. You just set `GOMAXPROCS` and everything scales.
 
 ### Elysia (Bun)
 
@@ -175,7 +175,7 @@ new Elysia()
   .listen(PORT);
 ```
 
-The most elegant of the bunch. Elysia's API is beautifully minimal — return an object and it becomes JSON. The TypeBox schema validation (`t.Object`, `t.String`) is declarative and type-safe. Bun's runtime makes it fast.
+The most elegant of the bunch. Elysia's API is beautifully minimal. Return an object and it becomes JSON. The TypeBox schema validation (`t.Object`, `t.String`) is declarative and type-safe. Bun's runtime makes it fast.
 
 ### BlackSheep (Python)
 
@@ -235,17 +235,17 @@ All numbers are requests per second, higher is better. Each framework ran with 2
 
 A few things jump out.
 
-**Gin wins everything**, which isn't surprising — Go's goroutine scheduler and compiled performance are hard to beat. But it's not a blowout against Elysia on plaintext (300k vs 246k, only 22% ahead).
+**Gin wins everything**, which isn't surprising. Go's goroutine scheduler and compiled performance are hard to beat. But it's not a blowout against Elysia on plaintext (300k vs 246k, only 22% ahead).
 
 **Elysia drops hard under load.** From plaintext (246k) to validate (102k), it loses 58% of its throughput. Bun is fast at raw I/O, but TypeBox validation in JavaScript is expensive relative to the baseline.
 
-**BlackSheep is shockingly fast for Python.** 152k req/s on plaintext, and it holds up well under load — only a 35% drop to validate (99k). That validate number is close to Elysia's (102k vs 99k). A Python framework running at 96% of Bun's speed on a real workload.
+**BlackSheep is shockingly fast for Python.** 152k req/s on plaintext, and it holds up well under load, only a 35% drop to validate (99k). That validate number is close to Elysia's (102k vs 99k). A Python framework running at 96% of Bun's speed on a real workload.
 
 **FastAPI is about half of BlackSheep** across the board. The Pydantic validation layer and middleware stack cost roughly 2x in overhead. Still, 46k req/s on validate is respectable.
 
 ## So Can BlackSheep Get Even Faster?
 
-Two swaps. [Granian](https://github.com/emmett-framework/granian) instead of uvicorn — a Rust-based ASGI server. [orjson](https://github.com/ijl/orjson) instead of stdlib `json` — a Rust-based JSON serializer. Same application code, different plumbing:
+Two swaps. [Granian](https://github.com/emmett-framework/granian) instead of uvicorn, a Rust-based ASGI server. [orjson](https://github.com/ijl/orjson) instead of stdlib `json`, a Rust-based JSON serializer. Same application code, different plumbing:
 
 ```python
 import orjson
@@ -302,7 +302,7 @@ async def validate(request: Request) -> Response:
 | **BlackSheep** (uvicorn) | 152,005 | 129,958 | 128,939 | 98,829 |
 | **FastAPI** (Python) | 79,785 | 66,114 | 51,560 | 45,963 |
 
-Yes it can. BlackSheep+Granian+orjson beats Elysia on validate (120k vs 102k) and params (190k vs 186k). The JSON endpoint improved 56% — that's what swapping `json.dumps()` for a Rust serializer does.
+Yes it can. BlackSheep+Granian+orjson beats Elysia on validate (120k vs 102k) and params (190k vs 186k). The JSON endpoint improved 56%. That's what swapping `json.dumps()` for a Rust serializer does.
 
 ## What I Learned
 
@@ -314,4 +314,4 @@ Yes it can. BlackSheep+Granian+orjson beats Elysia on validate (120k vs 102k) an
 
 ---
 
-All the code, Dockerfiles, and raw results are in the [repository](https://github.com/cemrehancavdar/framework-benchmark). Benchmarking is hard — if you spot something unfair or wrong, please tell me.
+All the code, Dockerfiles, and raw results are in the [repository](https://github.com/cemrehancavdar/framework-benchmark). Benchmarking is hard. If you spot something unfair or wrong, please tell me.
