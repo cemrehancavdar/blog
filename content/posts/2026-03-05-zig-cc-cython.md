@@ -4,8 +4,8 @@ date: 2026-03-05T20:00:00
 type: post
 tags: [python, cython, zig, c, compiler, build]
 draft: false
-subtitle: "the C compiler you already have"
-description: "Someone opened a PR on my Cython project. Closed it because the cloud environment didn't have gcc. That sent me down a rabbit hole: zig as a Python dependency, flag filtering, and a table of compiler flags I never wanted to know about."
+subtitle: "to compile cython anywhere"
+description: "Someone opened a PR on my Cython project. Closed it because the cloud environment didn't have gcc. That sent me down a rabbit hole: zig as a Python dependency, flag filtering, and compiler flags I never wanted to know about."
 ---
 
 I built <a href="https://github.com/cemrehancavdar/marimo-cython" target="_blank">marimo-cython</a> — Cython inside <a href="https://marimo.io" target="_blank">marimo</a> notebooks. A few days later, <a href="https://github.com/koaning" target="_blank">Vincent Warmerdam</a> — one of my favorite YouTubers, he runs <a href="https://www.youtube.com/@calmcode-io" target="_blank">calmcode</a> — opened <a href="https://github.com/cemrehancavdar/marimo-cython/pull/1" target="_blank">a PR</a> to add a "Open in molab" badge — molab being marimo's <a href="https://molab.marimo.io" target="_blank">cloud notebook platform</a>.
@@ -76,7 +76,9 @@ macOS works.
 
 **Step 4: try Linux, try OpenMP**
 
-Linux had its own set of flags — `-Wl,--exclude-libs`, `-Wl,-Bsymbolic-functions` — none of which zig's linker supports. More drops, more checking whether the drops are safe. They are, for normal extension builds.
+Linux had its own set of flags — `-Wl,--exclude-libs`, `-Wl,-Bsymbolic-functions` — none of which zig's linker supports. More drops, more checking whether the drops are safe. They are, for normal extension builds. Linux works too.
+
+I packaged the whole thing as <a href="https://pypi.org/project/zig-cc-python/" target="_blank">`zig-cc-python`</a>.
 
 Then I tried OpenMP. Worked on Linux. On macOS, `prange` loops silently returned wrong results — zig cc compiled the code without actually emitting the parallel runtime calls. No fix. Moved on.
 
@@ -84,7 +86,7 @@ Then I tried OpenMP. Worked on Linux. On macOS, `prange` loops silently returned
 
 ## The payoff
 
-Eight flags. The entire wrapper is ~80 lines of Python. That's what took days.
+Eight flags. The entire wrapper is ~80 lines of Python. That's what took days — it's harder when you're not sure you know what you're doing.
 
 The <a href="https://github.com/cemrehancavdar/marimo-cython/pull/1" target="_blank">PR</a> that started this works now — here's <a href="https://molab.marimo.io/notebooks/nb_4AMe9xM8Pxp5sLnxHk6mwo" target="_blank">a marimo notebook compiling Cython on molab</a>, no gcc, no system compiler, just Python packages.
 
