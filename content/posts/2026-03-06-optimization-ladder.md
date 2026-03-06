@@ -53,7 +53,7 @@ Python int:   [ ob_refcnt  8B ]    reference count
 
 4 bytes of number, 24 bytes of machinery to support dynamism. `a + b` means: dereference two heap pointers, check both type pointers, dispatch to `int.__add__`, allocate a new `PyObject` for the result, update reference counts for all three objects. One number isn't slow. Millions in a loop are.
 
-The GIL (Global Interpreter Lock) gets blamed a lot, but it has **no impact on single-threaded performance** — it only matters when multiple CPU-bound threads compete for the interpreter. For the benchmarks in this post, the GIL is irrelevant. CPython 3.13 shipped experimental free-threaded mode (`--disable-gil`), but as we'll see, it actually makes single-threaded code *slower* because removing the GIL adds overhead to every reference count operation.
+The GIL (Global Interpreter Lock) gets blamed a lot, but it has **no impact on single-threaded performance** — it only matters when multiple CPU-bound threads compete for the interpreter. For the benchmarks in this post, the GIL is irrelevant. CPython 3.13 shipped experimental free-threaded mode (`--disable-gil`) — still experimental in 3.14 — but as we'll see, it actually makes single-threaded code *slower* because removing the GIL adds overhead to every reference count operation.
 
 The interpretation overhead is real but is being actively addressed. CPython 3.11's <a href="https://docs.python.org/3/whatsnew/3.11.html" target="_blank">Faster CPython</a> project added adaptive specialization — the VM detects "hot" bytecodes and replaces them with type-specialized versions, skipping some of the dispatch. It helped (~1.4x). CPython 3.13 went further with an experimental <a href="https://docs.python.org/3/whatsnew/3.13.html#an-experimental-jit-compiler" target="_blank">copy-and-patch JIT compiler</a> — a lightweight JIT that stitches together pre-compiled machine code templates instead of generating code from scratch. It's not a full tracing JIT like V8 or PyPy; it's designed to be small and fast to start, avoiding the heavyweight JIT startup cost that has historically kept CPython from going this route. Early results are modest (single-digit percent improvements), but the infrastructure is now in place for more aggressive optimizations in future releases. JavaScript's V8 achieves much better JIT results, but V8 also had hundreds of engineers and a single-threaded execution model that makes optimization easier. (For more on the "why doesn't CPython JIT" question, see Anthony Shaw's <a href="https://tonybaloney.github.io/posts/why-is-python-so-slow.html" target="_blank">"Why is Python so slow?"</a>.)
 
@@ -67,18 +67,19 @@ So the picture is: **Python is slow because its dynamic design requires runtime 
 
 <div class="bench-table">
 
-| Version | N-body | vs 3.13 | Spectral-norm | vs 3.13 |
+| Version | N-body | vs 3.14 | Spectral-norm | vs 3.14 |
 |---|---|---|---|---|
-| CPython 3.10 | 1,672ms | 0.66x | 16,723ms | 0.81x |
-| CPython 3.11 | 1,175ms | 0.94x | 13,272ms | 1.02x |
-| CPython 3.13 | 1,105ms | 1.0x | 13,499ms | 1.0x |
-| CPython 3.14t (free-threaded) | 1,534ms | 0.72x | 14,235ms | 0.95x |
+| CPython 3.10 | 1,663ms | 0.75x | 16,826ms | 0.83x |
+| CPython 3.11 | 1,200ms | 1.04x | 13,430ms | 1.05x |
+| CPython 3.13 | 1,134ms | 1.10x | 13,637ms | 1.03x |
+| CPython 3.14 | 1,242ms | 1.0x | 14,046ms | 1.0x |
+| CPython 3.14t (free-threaded) | 1,513ms | 0.82x | 14,551ms | 0.97x |
 
 </div>
 
-The story is **3.10 to 3.11**: a 1.42x speedup on n-body, for free. That's the <a href="https://docs.python.org/3/whatsnew/3.11.html" target="_blank">Faster CPython</a> project — adaptive specialization of bytecodes, inline caching, zero-cost exceptions. After 3.11, it's a plateau.
+The story is **3.10 to 3.11**: a 1.39x speedup on n-body, for free. That's the <a href="https://docs.python.org/3/whatsnew/3.11.html" target="_blank">Faster CPython</a> project — adaptive specialization of bytecodes, inline caching, zero-cost exceptions. 3.13 squeezed out a bit more. 3.14 gave some of it back — a minor regression on these benchmarks, likely due to internal refactoring for the new JIT infrastructure.
 
-Free-threaded Python (3.14t) is **24-28% slower** on single-threaded code. The GIL removal adds overhead to every reference count operation. Worth it only if you have genuinely parallel CPU-bound threads. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cpython-versions.md" target="_blank">Full version comparison</a>)
+Free-threaded Python (3.14t) is **18-22% slower** on single-threaded code. The GIL removal adds overhead to every reference count operation. Worth it only if you have genuinely parallel CPU-bound threads. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cpython-versions.md" target="_blank">Full version comparison</a>)
 
 This rung costs nothing. If you're still on 3.10, upgrade.
 
@@ -86,14 +87,14 @@ This rung costs nothing. If you're still on 3.10, upgrade.
 
 ## Rung 1: PyPy
 
-**Cost: switching interpreters. Reward: 11-13x.**
+**Cost: switching interpreters. Reward: 13x.**
 
 <div class="bench-table">
 
 | | N-body | Spectral-norm |
 |---|---|---|
-| CPython 3.13 | 1,105ms | 13,499ms |
-| PyPy | 98ms (**11x**) | 1,065ms (**13x**) |
+| CPython 3.14 | 1,242ms | 14,046ms |
+| PyPy | 98ms (**13x**) | 1,065ms (**13x**) |
 
 </div>
 
@@ -105,14 +106,14 @@ The catch: ecosystem compatibility. If your project imports numpy, pandas, or an
 
 ## Rung 2: Mypyc
 
-**Cost: type annotations you probably already have. Reward: 2.5-14x.**
+**Cost: type annotations you probably already have. Reward: 2.4-14x.**
 
 <div class="bench-table">
 
 | | N-body | Spectral-norm |
 |---|---|---|
-| CPython 3.13 | 1,105ms | 13,499ms |
-| Mypyc | 442ms (**2.5x**) | 959ms (**14x**) |
+| CPython 3.14 | 1,242ms | 14,046ms |
+| Mypyc | 518ms (**2.4x**) | 990ms (**14x**) |
 
 </div>
 
@@ -140,7 +141,7 @@ def advance(dt: float, n: int, bodies: list[Body], pairs: list[BodyPair]) -> Non
 
 The difference from the baseline: explicit type declarations on every local variable so mypyc can use C primitives instead of Python objects, and `math.sqrt` instead of `** -1.5` so the call compiles to C's `sqrt()`. That's it — no special decorators, no new build system beyond `mypycify()`.
 
-The mypy project itself — ~100k+ lines of Python — achieved a <a href="https://github.com/mypyc/mypyc" target="_blank">4x end-to-end speedup</a> by compiling with mypyc. The official docs say "1.5x to 5x" for existing annotated code, "5x to 10x" for code tuned for compilation. The spectral-norm result (14x) lands above that range because the inner loop is pure arithmetic that mypyc compiles directly to C. On our dict-heavy JSON pipeline, mypyc hit 2.3x — closer to the expected floor.
+The mypy project itself — ~100k+ lines of Python — achieved a <a href="https://github.com/mypyc/mypyc" target="_blank">4x end-to-end speedup</a> by compiling with mypyc. The official docs say "1.5x to 5x" for existing annotated code, "5x to 10x" for code tuned for compilation. The spectral-norm result (14x) lands above that range because the inner loop is pure arithmetic that mypyc compiles directly to C. On our dict-heavy JSON pipeline, mypyc hit 2.3x on pre-parsed dicts — closer to the expected floor.
 
 The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwargs`, `getattr` tricks, and heavily duck-typed code won't compile. But if your code already passes mypy strict mode, mypyc is the lowest-effort compilation rung on the ladder.
 
@@ -148,18 +149,18 @@ The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwar
 
 ## Rung 3: NumPy
 
-**Cost: knowing NumPy. Reward: up to 638x.**
+**Cost: knowing NumPy. Reward: up to 520x.**
 
 <div class="bench-table">
 
 | | Spectral-norm |
 |---|---|
-| CPython 3.13 | 13,499ms |
-| NumPy | 21ms (**638x**) |
+| CPython 3.14 | 14,046ms |
+| NumPy | 27ms (**520x**) |
 
 </div>
 
-638x. Faster than Rust's 142x on the same problem.
+520x. Faster than Rust's 148x on the same problem.
 
 Spectral-norm is matrix-vector multiplication. NumPy pre-computes the matrix once and delegates to BLAS (Apple Accelerate on macOS):
 
@@ -180,14 +181,14 @@ The constraint: your problem must fit vectorized operations. Element-wise math, 
 
 ## Rung 4: Numba
 
-**Cost: `@njit` + restructuring data into NumPy arrays. Reward: 51-125x.**
+**Cost: `@njit` + restructuring data into NumPy arrays. Reward: 56-135x.**
 
 <div class="bench-table">
 
 | | N-body | Spectral-norm |
 |---|---|---|
-| CPython 3.13 | 1,105ms | 13,499ms |
-| Numba @njit | 22ms (**51x**) | 108ms (**125x**) |
+| CPython 3.14 | 1,242ms | 14,046ms |
+| Numba @njit | 22ms (**56x**) | 104ms (**135x**) |
 
 </div>
 
@@ -213,20 +214,20 @@ One decorator. Restructure data into NumPy arrays. The constraint: Numba only un
 
 ## Rung 5: Cython
 
-**Cost: learning C's mental model, expressed in Python syntax. Reward: 91-93x.**
+**Cost: learning C's mental model, expressed in Python syntax. Reward: 99-124x.**
 
 <div class="bench-table">
 
 | | N-body | Spectral-norm |
 |---|---|---|
-| CPython 3.13 | 1,105ms | 13,499ms |
-| Cython | 12ms (**93x**) | 149ms (**91x**) |
+| CPython 3.14 | 1,242ms | 14,046ms |
+| Cython | 10ms (**124x**) | 142ms (**99x**) |
 
 </div>
 
-93x on n-body. Within 12% of Rust. But here's the thing about this rung:
+124x on n-body. Within 10% of Rust. But here's the thing about this rung:
 
-**My first Cython n-body got 10.5x.** Same algorithm, same Cython, same compiler. The final version got 93x. The difference was three landmines, none of which produced warnings:
+**My first Cython n-body got 10.5x.** Same algorithm, same Cython, same compiler. The final version got 124x. The difference was three landmines, none of which produced warnings:
 
 - `** 0.5` routes through Python's generic `pow()` instead of C's `sqrt()`. **5x penalty.** No error, no yellow line in the annotation report. The code works, it's just silently slow.
 - Precomputed pair index arrays prevent the C compiler from unrolling the nested loop. **2x penalty.** The "clever" version is slower.
@@ -234,13 +235,13 @@ One decorator. Restructure data into NumPy arrays. The constraint: Numba only un
 
 Cython's pitch is "just add types to Python." The reality is: learn C's mental model, express it in Python syntax, and use the annotation report (`cython -a`) to verify the compiler did what you think. The full story is in <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cython-minefield.md" target="_blank">The Cython Minefield</a>.
 
-The reward is real — 93x, matching compiled languages. But the failure mode is silent. If you don't know why `** 0.5` is different from `sqrt()`, Cython will punish you without telling you.
+The reward is real — 99-124x, matching compiled languages. But the failure mode is silent. If you don't know why `** 0.5` is different from `sqrt()`, Cython will punish you without telling you.
 
 ---
 
 ## Rung 6: The New Wave
 
-**Cost: new toolchains, rough edges, ecosystem gaps. Reward: 24-187x.**
+**Cost: new toolchains, rough edges, ecosystem gaps. Reward: 26-190x.**
 
 Three tools promise to compile Python (or Python-like code) to native machine code. I tested all three.
 
@@ -248,13 +249,13 @@ Three tools promise to compile Python (or Python-like code) to native machine co
 
 | | N-body | Speedup | Spectral-norm | Speedup | The catch |
 |---|---|---|---|---|---|
-| Codon 0.19 | 47ms | **24x** | 101ms | **134x** | Own runtime, no stdlib, standalone binaries only |
-| Mojo nightly | 15ms | **75x** | 116ms | **117x** | New language (pre-1.0), needs pixi, full rewrite required |
-| Taichi 1.7 | 16ms | **70x** | 72ms | **187x** | `from __future__ import annotations` silently breaks it |
+| Codon 0.19 | 47ms | **26x** | 99ms | **142x** | Own runtime, no stdlib, standalone binaries only |
+| Mojo nightly | 16ms | **78x** | 118ms | **119x** | New language (pre-1.0), needs pixi, full rewrite required |
+| Taichi 1.7 | 16ms | **78x** | 74ms | **190x** | Python 3.13 only (no 3.14 wheels) |
 
 </div>
 
-The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes. Taichi has the best spectral-norm result (187x) but surprising failure modes — a standard Python import at the top of the file silently disables its compiler. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
+The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes. Taichi has the best spectral-norm result (190x) but **doesn't ship wheels for Python 3.14** — its numbers above were benchmarked on a separate Python 3.13 environment. That's the compromise with these tools: if your runtime doesn't keep up with CPython releases, you're stuck on an old version or juggling multiple environments. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
 
 None are drop-in. All are worth watching.
 
@@ -262,18 +263,18 @@ None are drop-in. All are worth watching.
 
 ## Rung 7: Rust via PyO3
 
-**Cost: learning Rust. Reward: 106-142x.**
+**Cost: learning Rust. Reward: 113-154x.**
 
 <div class="bench-table">
 
 | | N-body | Spectral-norm |
 |---|---|---|
-| CPython 3.13 | 1,105ms | 13,499ms |
-| Rust (PyO3) | 10ms (**106x**) | 95ms (**142x**) |
+| CPython 3.14 | 1,242ms | 14,046ms |
+| Rust (PyO3) | 11ms (**113x**) | 91ms (**154x**) |
 
 </div>
 
-The top of the ladder. But notice: on n-body, Cython at 12ms vs Rust at 10ms is only a 1.2x difference. Both compiled to native machine code. The remaining gap is compiler backend quality (LLVM vs GCC), not a fundamental language difference.
+The top of the ladder. But notice: on n-body, Cython at 10ms vs Rust at 11ms — they're essentially tied. Both compiled to native machine code. The remaining difference is noise, not a fundamental language gap.
 
 The real Rust advantage isn't raw speed — it's **pipeline ownership**. When Rust parses JSON directly with serde into typed structs, it never creates a Python dict. It bypasses the Python object system entirely. That matters more on the next benchmark.
 
@@ -289,31 +290,33 @@ First, every tool starts from pre-parsed Python dicts — same input, same work:
 
 | Approach | Time | Speedup | What it costs you |
 |---|---|---|---|
-| CPython 3.13 | 51ms | 1.0x | Nothing |
-| Mypyc | 22ms | 2.3x | Type annotations |
-| Cython (dict optimized) | 14ms | 3.8x | Days of annotation work |
+| CPython 3.14 | 48ms | 1.0x | Nothing |
+| Mypyc | 21ms | 2.3x | Type annotations |
+| Cython (dict optimized) | 12ms | 4.1x | Days of annotation work |
 
 </div>
 
-3.8x. Not 50x. The bottleneck is **Python dict access**. Even Cython's fully optimized version — `@cython.cclass`, C arrays for counters, direct CPython C-API calls (`PyList_GET_ITEM`, `PyDict_GetItem` with borrowed refs) — still reads input dicts through the Python C API.
+4.1x. Not 50x. The bottleneck is **Python dict access**. Even Cython's fully optimized version — `@cython.cclass`, C arrays for counters, direct CPython C-API calls (`PyList_GET_ITEM`, `PyDict_GetItem` with borrowed refs) — still reads input dicts through the Python C API.
 
-But wait — why are we feeding Cython Python dicts at all? `json.loads()` takes 57ms to create those dicts. That's more than the entire baseline pipeline. What if Cython reads the raw bytes itself?
+But wait — why are we feeding Cython Python dicts at all? `json.loads()` takes 53ms to create those dicts. That's more than the entire baseline pipeline. What if Cython reads the raw bytes itself?
 
-What if Cython reads raw bytes itself? I wrote a second Cython pipeline: a hand-rolled JSON scanner in pure Cython — C-level byte walking, `memcmp` for key matching, integer arithmetic for timestamps. No external libraries, no Python objects until the final output. And for Rust, idiomatic serde with zero-copy deserialization. Both own the data end-to-end:
+I wrote a second Cython pipeline that calls <a href="https://github.com/ibireme/yyjson" target="_blank">yyjson</a> — a general-purpose C JSON parser, the C equivalent of Rust's serde. Both are schema-agnostic: they parse any valid JSON, not just our event format. Cython walks the parsed tree with C pointers, filters and aggregates into C structs, and builds Python dicts only for the final output. For Rust, idiomatic serde with zero-copy deserialization. Both own the data end-to-end:
 
 <div class="bench-table">
 
 | Approach | Time | Speedup | What it costs you |
 |---|---|---|---|
-| CPython 3.13 (json.loads + pipeline) | 110ms | 1.0x | Nothing |
-| Mypyc (json.loads + pipeline) | 81ms | 1.3x | Type annotations |
-| Cython (json.loads + pipeline) | 66ms | 1.7x | C-API dict access |
-| Rust (serde, from bytes) | 21ms | **5.2x** | New language + bindings |
-| Cython (from raw bytes) | 15ms | **7.1x** | Hand-rolled JSON scanner |
+| CPython 3.14 (json.loads + pipeline) | 105ms | 1.0x | Nothing |
+| Mypyc (json.loads + pipeline) | 77ms | 1.4x | Type annotations |
+| Cython (json.loads + pipeline) | 67ms | 1.6x | C-API dict access |
+| Rust (serde, from bytes) | 21ms | **5.0x** | New language + bindings |
+| Cython (yyjson, from bytes) | 17ms | **6.3x** | C library + Cython declarations |
 
 </div>
 
-**7.1x for Cython, 5.2x for Rust.** The ceiling was never the pipeline code — it was `json.loads()`. Cython's hand-rolled scanner trades generality for speed: 350 lines of C-level byte scanning for a fixed schema. Rust's serde is a general-purpose JSON parser and still hits 5.2x. Both are honest numbers. The code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
+**6.3x for Cython, 5.0x for Rust.** The ceiling was never the pipeline code — it was `json.loads()`. Both approaches use general-purpose JSON parsers — yyjson on the Cython side, serde on the Rust side — and both avoid Python objects entirely in the hot loop: Cython walks yyjson's C tree into C structs, Rust deserializes into native structs via serde.
+
+I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motivated person could make either one faster — swap parsers, tune allocators, restructure the pipeline. The point isn't which tool wins this specific benchmark. The point is *how many rungs you're willing to climb*. Both land in the same neighborhood once you bypass `json.loads()`. The code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
 
 ---
 
@@ -325,17 +328,17 @@ What if Cython reads raw bytes itself? I wrote a second Cython pipeline: a hand-
 
 | Approach | Time | Speedup | What it costs you |
 |---|---|---|---|
-| CPython 3.10 | 1,672ms | 0.66x | Old version |
-| CPython 3.13 | 1,105ms | 1.0x | Nothing |
-| CPython 3.14t | 1,534ms | 0.72x | GIL-free but slower single-thread |
-| Mypyc | 442ms | 2.5x | Type annotations |
-| PyPy | 98ms | 11x | Ecosystem compatibility |
-| Codon | 47ms | 24x | Separate runtime, no stdlib |
-| Numba | 22ms | 51x | `@njit` + NumPy arrays |
-| Taichi | 16ms | 70x | `@ti.kernel` + Taichi fields |
-| Mojo | 15ms | 75x | New language + toolchain |
-| Cython | 12ms | 93x | C knowledge + landmines |
-| Rust (PyO3) | 10ms | 106x | Learning Rust |
+| CPython 3.10 | 1,663ms | 0.75x | Old version |
+| CPython 3.14 | 1,242ms | 1.0x | Nothing |
+| CPython 3.14t | 1,513ms | 0.82x | GIL-free but slower single-thread |
+| Mypyc | 518ms | 2.4x | Type annotations |
+| PyPy | 98ms | 13x | Ecosystem compatibility |
+| Codon | 47ms | 26x | Separate runtime, no stdlib |
+| Numba | 22ms | 56x | `@njit` + NumPy arrays |
+| Taichi | 16ms | 78x | Python 3.13 only (no 3.14 wheels) |
+| Mojo | 16ms | 78x | New language + toolchain |
+| Cython | 10ms | 124x | C knowledge + landmines |
+| Rust (PyO3) | 11ms | 113x | Learning Rust |
 
 </div>
 
@@ -345,18 +348,18 @@ What if Cython reads raw bytes itself? I wrote a second Cython pipeline: a hand-
 
 | Approach | Time | Speedup | What it costs you |
 |---|---|---|---|
-| CPython 3.10 | 16,723ms | 0.81x | Old version |
-| CPython 3.13 | 13,499ms | 1.0x | Nothing |
-| CPython 3.14t | 14,235ms | 0.95x | GIL-free but slower single-thread |
-| Mypyc | 959ms | 14x | Type annotations |
+| CPython 3.10 | 16,826ms | 0.83x | Old version |
+| CPython 3.14 | 14,046ms | 1.0x | Nothing |
+| CPython 3.14t | 14,551ms | 0.97x | GIL-free but slower single-thread |
+| Mypyc | 990ms | 14x | Type annotations |
 | PyPy | 1,065ms | 13x | Ecosystem compatibility |
-| Numba | 108ms | 125x | `@njit` + NumPy arrays |
-| Codon | 101ms | 134x | Separate runtime, no stdlib |
-| Mojo | 116ms | 117x | New language + toolchain |
-| Rust (PyO3) | 95ms | 142x | Learning Rust |
-| Cython | 149ms | 91x | C knowledge + landmines |
-| Taichi | 72ms | 187x | `@ti.kernel` + Taichi fields |
-| NumPy | 21ms | 638x | Knowing NumPy + O(N^2) memory |
+| Codon | 99ms | 142x | Separate runtime, no stdlib |
+| Numba | 104ms | 135x | `@njit` + NumPy arrays |
+| Mojo | 118ms | 119x | New language + toolchain |
+| Rust (PyO3) | 91ms | 154x | Learning Rust |
+| Cython | 142ms | 99x | C knowledge + landmines |
+| Taichi | 74ms | 190x | Python 3.13 only (no 3.14 wheels) |
+| NumPy | 27ms | 520x | Knowing NumPy + O(N^2) memory |
 
 </div>
 
@@ -366,11 +369,11 @@ What if Cython reads raw bytes itself? I wrote a second Cython pipeline: a hand-
 
 | Approach | Time | Speedup | What it costs you |
 |---|---|---|---|
-| CPython 3.13 (json.loads + pipeline) | 110ms | 1.0x | Nothing |
-| Mypyc (json.loads + pipeline) | 81ms | 1.3x | Type annotations |
-| Cython (json.loads + pipeline) | 66ms | 1.7x | C-API dict access |
-| Rust (serde, from bytes) | 21ms | 5.2x | New language + bindings |
-| Cython (from raw bytes) | 15ms | 7.1x | Hand-rolled JSON scanner |
+| CPython 3.14 (json.loads + pipeline) | 105ms | 1.0x | Nothing |
+| Mypyc (json.loads + pipeline) | 77ms | 1.4x | Type annotations |
+| Cython (json.loads + pipeline) | 67ms | 1.6x | C-API dict access |
+| Rust (serde, from bytes) | 21ms | 5.0x | New language + bindings |
+| Cython (yyjson, from bytes) | 17ms | 6.3x | C library + Cython declarations |
 
 </div>
 
@@ -378,22 +381,22 @@ What if Cython reads raw bytes itself? I wrote a second Cython pipeline: a hand-
 
 ## When to Stop Climbing
 
-The effort curve is exponential. Mypyc (2.5-14x) costs type annotations. PyPy (11x) costs a binary swap. Numba (51x) costs one decorator. Cython (93x) costs days and C knowledge. Rust (106x) costs learning a new language. The jump from 51x to 106x is a 2x improvement that costs 100x more effort.
+The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy (13x) costs a binary swap. Numba (56x) costs one decorator. Cython (99-124x) costs days and C knowledge. Rust (113-154x) costs learning a new language. The jump from 56x to 113x is a 2x improvement that costs 100x more effort.
 
 **Upgrade first.** 3.10 to 3.11 gives you 1.4x for free.
 
-**Mypyc for typed codebases.** If your code already passes mypy strict, compile it. 2.5x on n-body, 14x on spectral-norm, for almost no work.
+**Mypyc for typed codebases.** If your code already passes mypy strict, compile it. 2.4x on n-body, 14x on spectral-norm, for almost no work.
 
 **NumPy for vectorizable math.** If your problem is matrix algebra or element-wise operations, stop reading. `a.T @ (a @ u)` beat everything including Rust.
 
-**Numba for numeric loops.** `@njit` gives you 51-125x with one decorator and honest error messages.
+**Numba for numeric loops.** `@njit` gives you 56-135x with one decorator and honest error messages.
 
-**Cython if you know C.** 91-93x is real, but the failure mode is silent slowness.
+**Cython if you know C.** 99-124x is real, but the failure mode is silent slowness.
 
-**Rust for pipeline ownership.** On pure compute, Cython gets within 12% of Rust. The real advantage is when Rust owns the data flow end-to-end.
+**Rust for pipeline ownership.** On pure compute, Cython and Rust are neck and neck. The real advantage is when Rust owns the data flow end-to-end.
 
-**PyPy for pure Python.** 11-13x for zero code changes is remarkable, if your dependencies support it.
+**PyPy for pure Python.** 13x for zero code changes is remarkable, if your dependencies support it.
 
-**Most code doesn't need any of this.** The pipeline benchmark — the most realistic of the three — topped out at 3.8x when starting from Python dicts. 7.1x when Cython owned the bytes. If your hot path is `dict[str, Any]`, the answer might be "stop creating dicts," not "change the language." And if your code is I/O bound, none of this matters at all.
+**Most code doesn't need any of this.** The pipeline benchmark — the most realistic of the three — topped out at 4.1x when starting from Python dicts. 6.3x when Cython called yyjson and owned the bytes. If your hot path is `dict[str, Any]`, the answer might be "stop creating dicts," not "change the language." And if your code is I/O bound, none of this matters at all.
 
 <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/profiling.md" target="_blank">Profile before you optimize.</a> `cProfile` to find the function. `line_profiler` to find the line. Then pick the right rung.
