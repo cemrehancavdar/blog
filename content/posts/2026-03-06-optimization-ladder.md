@@ -2,7 +2,7 @@
 title: "The Optimization Ladder"
 date: 2026-03-06T20:00:00
 type: post
-tags: [python, performance, benchmark, cython, rust, numba, numpy, mojo, codon, taichi]
+tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi]
 draft: false
 subtitle: "every way to make Python fast, benchmarked"
 description: "Python loses every public benchmark by 50-600x. I took the exact problems people use to dunk on Python and climbed every rung of the optimization ladder — from CPython version upgrades to Rust. Real numbers, real code, real effort costs."
@@ -105,23 +105,44 @@ The catch: ecosystem compatibility. If your project imports numpy, pandas, or an
 
 ## Rung 2: Mypyc
 
-**Cost: type annotations you probably already have. Reward: 2-5x.**
+**Cost: type annotations you probably already have. Reward: 2.5-14x.**
+
+<div class="bench-table">
+
+| | N-body | Spectral-norm |
+|---|---|---|
+| CPython 3.13 | 1,105ms | 13,499ms |
+| Mypyc | 442ms (**2.5x**) | 959ms (**14x**) |
+
+</div>
 
 Mypyc compiles type-annotated Python to C extensions using the same type analysis as mypy. No new syntax, no new language — just your existing typed Python, compiled ahead of time.
 
 ```python
 # Already valid typed Python — mypyc compiles this to C
-def process_events(events: list[dict[str, Any]]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for event in events:
-        key = event["type"]
-        counts[key] = counts.get(key, 0) + 1
-    return counts
+def advance(dt: float, n: int, bodies: list[Body], pairs: list[BodyPair]) -> None:
+    dx: float
+    dy: float
+    dz: float
+    dist_sq: float
+    dist: float
+    mag: float
+    for _ in range(n):
+        for (r1, v1, m1), (r2, v2, m2) in pairs:
+            dx = r1[0] - r2[0]
+            dy = r1[1] - r2[1]
+            dz = r1[2] - r2[2]
+            dist_sq = dx * dx + dy * dy + dz * dz
+            dist = math.sqrt(dist_sq)
+            mag = dt / (dist_sq * dist)
+            # ...
 ```
 
-The mypy project itself — ~100k+ lines of Python — achieved a <a href="https://github.com/mypyc/mypyc" target="_blank">4x end-to-end speedup</a> by compiling with mypyc. The official docs say "1.5x to 5x" for existing annotated code, "5x to 10x" for code tuned for compilation. On our JSON pipeline benchmark, mypyc hit 2.3x — right in that range.
+The difference from the baseline: explicit type declarations on every local variable so mypyc can use C primitives instead of Python objects, and `math.sqrt` instead of `** -1.5` so the call compiles to C's `sqrt()`. That's it — no special decorators, no new build system beyond `mypycify()`.
 
-The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwargs`, `getattr` tricks, and heavily duck-typed code won't compile. But if your code already passes mypy strict mode, mypyc is the lowest-effort rung on the ladder with a real payoff.
+The mypy project itself — ~100k+ lines of Python — achieved a <a href="https://github.com/mypyc/mypyc" target="_blank">4x end-to-end speedup</a> by compiling with mypyc. The official docs say "1.5x to 5x" for existing annotated code, "5x to 10x" for code tuned for compilation. The spectral-norm result (14x) lands above that range because the inner loop is pure arithmetic that mypyc compiles directly to C. On our dict-heavy JSON pipeline, mypyc hit 2.3x — closer to the expected floor.
+
+The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwargs`, `getattr` tricks, and heavily duck-typed code won't compile. But if your code already passes mypy strict mode, mypyc is the lowest-effort compilation rung on the ladder.
 
 ---
 
@@ -294,6 +315,7 @@ Rust wins when it owns everything — parsing JSON directly with serde into type
 | CPython 3.10 | 1,672ms | 0.66x | Old version |
 | CPython 3.13 | 1,105ms | 1.0x | Nothing |
 | CPython 3.14t | 1,534ms | 0.72x | GIL-free but slower single-thread |
+| Mypyc | 442ms | 2.5x | Type annotations |
 | PyPy | 98ms | 11x | Ecosystem compatibility |
 | Codon | 47ms | 24x | Separate runtime, no stdlib |
 | Numba | 22ms | 51x | `@njit` + NumPy arrays |
@@ -313,6 +335,7 @@ Rust wins when it owns everything — parsing JSON directly with serde into type
 | CPython 3.10 | 16,723ms | 0.81x | Old version |
 | CPython 3.13 | 13,499ms | 1.0x | Nothing |
 | CPython 3.14t | 14,235ms | 0.95x | GIL-free but slower single-thread |
+| Mypyc | 959ms | 14x | Type annotations |
 | PyPy | 1,065ms | 13x | Ecosystem compatibility |
 | Numba | 108ms | 125x | `@njit` + NumPy arrays |
 | Codon | 101ms | 134x | Separate runtime, no stdlib |
@@ -341,11 +364,11 @@ Rust wins when it owns everything — parsing JSON directly with serde into type
 
 ## When to Stop Climbing
 
-The effort curve is exponential. PyPy (11x) costs a binary swap. Mypyc (2-5x) costs type annotations. Numba (51x) costs one decorator. Cython (93x) costs days and C knowledge. Rust (106x) costs learning a new language. The jump from 51x to 106x is a 2x improvement that costs 100x more effort.
+The effort curve is exponential. Mypyc (2.5-14x) costs type annotations. PyPy (11x) costs a binary swap. Numba (51x) costs one decorator. Cython (93x) costs days and C knowledge. Rust (106x) costs learning a new language. The jump from 51x to 106x is a 2x improvement that costs 100x more effort.
 
 **Upgrade first.** 3.10 to 3.11 gives you 1.4x for free.
 
-**Mypyc for typed codebases.** If your code already passes mypy strict, compile it. 2-5x for almost no work.
+**Mypyc for typed codebases.** If your code already passes mypy strict, compile it. 2.5x on n-body, 14x on spectral-norm, for almost no work.
 
 **NumPy for vectorizable math.** If your problem is matrix algebra or element-wise operations, stop reading. `a.T @ (a @ u)` beat everything including Rust.
 
