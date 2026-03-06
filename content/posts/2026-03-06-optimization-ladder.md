@@ -160,7 +160,7 @@ The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwar
 
 </div>
 
-520x. Faster than Rust's 148x on the same problem.
+520x. Faster than Rust's 154x on the same problem.
 
 Spectral-norm is matrix-vector multiplication. NumPy pre-computes the matrix once and delegates to BLAS (Apple Accelerate on macOS):
 
