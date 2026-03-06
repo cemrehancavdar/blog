@@ -275,7 +275,7 @@ None are drop-in. All are worth watching.
 
 The top of the ladder. But notice: on n-body, Cython at 12ms vs Rust at 10ms is only a 1.2x difference. Both compiled to native machine code. The remaining gap is compiler backend quality (LLVM vs GCC), not a fundamental language difference.
 
-The real Rust advantage isn't raw speed — it's **pipeline ownership**. When Rust parses JSON directly with serde into typed structs, it never creates a Python dict. It bypasses the Python object system entirely. That matters more on the next benchmark.
+The real Rust advantage isn't raw speed — it's **pipeline ownership**. When Rust parses JSON directly with serde into typed structs, it never creates a Python dict. It bypasses the Python object system entirely. That matters more on the next benchmark — until Cython does the same thing.
 
 ---
 
@@ -283,24 +283,39 @@ The real Rust advantage isn't raw speed — it's **pipeline ownership**. When Ru
 
 The Benchmarks Game problems are pure compute: tight loops, no I/O, no data structures beyond arrays. Most Python code looks nothing like that. So I built a third benchmark: load 100K JSON events, filter, transform, aggregate per user. Dicts, strings, datetime parsing — the kind of code that makes Numba useless and makes Cython fight the Python object system.
 
+First attempt: every tool receives pre-parsed Python dicts from `json.loads()`. This is how most people benchmark:
+
 <div class="bench-table">
 
 | Approach | Time | Speedup | What it costs you |
 |---|---|---|---|
-| CPython 3.13 | 51ms | 1.0x | Nothing |
-| Mypyc | 22ms | 2.3x | Type annotations |
-| Rust (from JSON, serde) | 23ms | 2.2x | New language + bindings |
-| Cython (fully optimized) | 14ms | 3.8x | Days of annotation work |
+| CPython 3.13 (pipeline only) | 51ms | 1.0x | Nothing |
+| Mypyc (pipeline only) | 22ms | 2.3x | Type annotations |
+| Cython (pipeline only) | 14ms | 3.6x | Days of annotation work |
 
 </div>
 
-The ceiling is 3.8x. Not 50x. Not 100x.
+The ceiling looks like 3.6x. But this benchmark is lying — it excludes JSON parsing, which takes 57ms in `json.loads()`. Every tool is stuck behind a 57ms wall of Python dict creation before it even starts working.
 
-Why? The bottleneck is **Python dict access**. Every tool except Rust still goes through `PyDict_GetItem`. Even Cython's fully optimized version — with `@cython.cclass`, C arrays for counters, `@cython.cfunc` on every helper, direct CPython C-API calls (`PyList_GET_ITEM`, `PyDict_GetItem` with borrowed refs) — still reads input dicts through the Python C API.
+What happens when you measure **end-to-end from raw bytes**?
 
-Rust wins when it owns everything — parsing JSON directly with serde into typed structs, never creating a Python dict. But when Rust starts from pre-parsed Python dicts, Cython actually beats it.
+<div class="bench-table">
 
-**The 100x speedups exist only when you can eliminate the Python object system entirely.** Most real code — the kind with dicts, strings, and heterogeneous data — can't. The pipeline benchmark is a 2-4x problem, not a 100x problem. The code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
+| Approach | Time | Speedup | What it costs you |
+|---|---|---|---|
+| CPython 3.13 (json.loads + pipeline) | 109ms | 1.0x | Nothing |
+| Mypyc (json.loads + pipeline) | 81ms | 1.3x | Type annotations |
+| Cython (json.loads + pipeline) | 66ms | 1.6x | Days of annotation work |
+| Rust (serde, from bytes) | 24ms | **4.5x** | New language + bindings |
+| Cython + yyjson (from bytes) | 15ms | **7.1x** | C library binding + C structs |
+
+</div>
+
+The lesson: **the bottleneck was never Cython — it was `json.loads()`**. Python's JSON parser spends 57ms creating Python dicts that every tool then has to read through `PyDict_GetItem`. When Cython parses JSON directly with <a href="https://github.com/ibireme/yyjson" target="_blank">yyjson</a> (a fast C JSON library) into C structs, it never creates a Python dict. The entire pipeline — parse, filter, transform, aggregate — runs in 15ms.
+
+Cython+yyjson beats Rust+serde. Not because Cython generates faster code, but because yyjson is a faster JSON parser than serde for this workload, and Cython's pipeline has zero overhead once everything is in C structs.
+
+**The 100x speedups from the compute benchmarks don't apply to dict-heavy code.** But the ceiling isn't 3.6x either — that number was an artifact of measuring the wrong thing. Once you give the optimizer raw bytes instead of Python objects, the ceiling moves to 7x. The code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
 
 ---
 
@@ -347,16 +362,17 @@ Rust wins when it owns everything — parsing JSON directly with serde into type
 
 </div>
 
-### JSON pipeline (100K events, dict-heavy real-world code)
+### JSON pipeline (100K events, end-to-end from raw bytes)
 
 <div class="bench-table">
 
 | Approach | Time | Speedup | What it costs you |
 |---|---|---|---|
-| CPython 3.13 | 51ms | 1.0x | Nothing |
-| Mypyc | 22ms | 2.3x | Type annotations |
-| Rust (from JSON, owns pipeline) | 23ms | 2.2x | New language + bindings |
-| Cython (fully optimized) | 14ms | 3.8x | Days of annotation work |
+| CPython 3.13 (json.loads + pipeline) | 109ms | 1.0x | Nothing |
+| Mypyc (json.loads + pipeline) | 81ms | 1.3x | Type annotations |
+| Cython (json.loads + pipeline) | 66ms | 1.6x | C-API dict access |
+| Rust (serde, from bytes) | 24ms | 4.5x | New language + bindings |
+| Cython + yyjson (from bytes) | 15ms | 7.1x | C library binding + C structs |
 
 </div>
 
@@ -376,10 +392,12 @@ The effort curve is exponential. Mypyc (2.5-14x) costs type annotations. PyPy (1
 
 **Cython if you know C.** 91-93x is real, but the failure mode is silent slowness.
 
-**Rust for pipeline ownership.** On pure compute, Cython gets within 12% of Rust. The real advantage is when Rust owns the data flow end-to-end.
+**Rust for pipeline ownership.** On pure compute, Cython gets within 12% of Rust. Rust's real advantage is a mature ecosystem (serde, PyO3) for owning entire data flows.
 
 **PyPy for pure Python.** 11-13x for zero code changes is remarkable, if your dependencies support it.
 
-**Most code doesn't need any of this.** The pipeline benchmark — the most realistic of the three — topped out at 3.8x. If your hot path is `dict[str, Any]`, the answer might be "change the data structure," not "change the language." And if your code is I/O bound, none of this matters at all.
+**Own the data.** The pipeline benchmark looked like a 3.6x problem when every tool received pre-parsed Python dicts. Once Cython parsed raw JSON bytes with yyjson — bypassing `json.loads()` and Python dicts entirely — it hit 7.1x and beat Rust. The bottleneck was never the optimizer. It was the input format.
+
+**Most code doesn't need any of this.** But if it does, profile the whole pipeline — including data loading. And if your code is I/O bound, none of this matters at all.
 
 <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/profiling.md" target="_blank">Profile before you optimize.</a> `cProfile` to find the function. `line_profiler` to find the line. Then pick the right rung.
