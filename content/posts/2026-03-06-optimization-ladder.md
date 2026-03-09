@@ -79,7 +79,7 @@ So the picture is: **Python is slow because its dynamic design requires runtime 
 
 The story is **3.10 to 3.11**: a 1.39x speedup on n-body, for free. That's the <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">Faster CPython</a> project — adaptive specialization of bytecodes, inline caching, zero-cost exceptions. 3.13 squeezed out a bit more. 3.14 gave some of it back — a minor regression on these benchmarks, likely due to internal refactoring for the new JIT infrastructure.
 
-Free-threaded Python (3.14t) is **18-22% slower** on single-threaded code. The GIL removal adds overhead to every reference count operation. Worth it only if you have genuinely parallel CPU-bound threads. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cpython-versions.md" target="_blank">Full version comparison</a>)
+Free-threaded Python (3.14t) is **slower** on single-threaded code. The GIL removal adds overhead to every reference count operation. Worth it only if you have genuinely parallel CPU-bound threads. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cpython-versions.md" target="_blank">Full version comparison</a>)
 
 This rung costs nothing. If you're still on 3.10, upgrade.
 
@@ -241,7 +241,7 @@ The reward is real — 99-124x, matching compiled languages. But the failure mod
 
 ## Rung 6: The New Wave
 
-**Cost: new toolchains, rough edges, ecosystem gaps. Reward: 26-190x.**
+**Cost: new toolchains, rough edges, ecosystem gaps. Reward: 26-198x.**
 
 Three tools promise to compile Python (or Python-like code) to native machine code. I tested all three.
 
@@ -251,11 +251,11 @@ Three tools promise to compile Python (or Python-like code) to native machine co
 |---|---|---|---|---|---|
 | Codon 0.19 | 47ms | **26x** | 99ms | **142x** | Own runtime, no stdlib, standalone binaries only |
 | Mojo nightly | 16ms | **78x** | 118ms | **119x** | New language (pre-1.0), full rewrite required |
-| Taichi 1.7 | 16ms | **78x** | 74ms | **190x** | Python 3.13 only (no 3.14 wheels) |
+| Taichi 1.7 | 16ms | **78x** | 71ms | **198x** | Python 3.13 only (no 3.14 wheels) |
 
 </div>
 
-The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes. Taichi has the best spectral-norm result (190x) but **doesn't ship wheels for Python 3.14** — its numbers above were benchmarked on a separate Python 3.13 environment. That's the compromise with these tools: if your runtime doesn't keep up with CPython releases, you're stuck on an old version or juggling multiple environments. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
+The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes. Taichi has the best spectral-norm result (198x) but **doesn't ship wheels for Python 3.14** — its numbers above were benchmarked on a separate Python 3.13 environment. That's the compromise with these tools: if your runtime doesn't keep up with CPython releases, you're stuck on an old version or juggling multiple environments. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
 
 None are drop-in. All are worth watching.
 
@@ -358,7 +358,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 | Mojo | 118ms | 119x | New language + toolchain |
 | Rust (PyO3) | 91ms | 154x | Learning Rust |
 | Cython | 142ms | 99x | C knowledge + landmines |
-| Taichi | 74ms | 190x | Python 3.13 only (no 3.14 wheels) |
+| Taichi | 71ms | 198x | Python 3.13 only (no 3.14 wheels) |
 | NumPy | 27ms | 520x | Knowing NumPy + O(N^2) memory |
 
 </div>
