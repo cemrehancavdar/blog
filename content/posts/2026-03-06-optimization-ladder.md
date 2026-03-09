@@ -407,6 +407,6 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 
 <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/profiling.md" target="_blank">Profile before you optimize.</a> `cProfile` to find the function. `line_profiler` to find the line. Then pick the right rung.
 
-**Not covered:** <a href="https://nuitka.net/" target="_blank">Nuitka</a> (Python-to-C compiler, mostly used for packaging — speedups are in the Mypyc range), <a href="https://pythran.readthedocs.io/" target="_blank">Pythran</a> (NumPy-focused AOT compiler, niche), and <a href="https://github.com/spylang/spy" target="_blank">SPy</a> (Antonio Cuni's static Python dialect — not ready yet but worth watching).
+**Not covered:** <a href="https://nuitka.net/" target="_blank">Nuitka</a> (Python-to-C compiler, mostly used for packaging — speedups are in the Mypyc range), <a href="https://pythran.readthedocs.io/" target="_blank">Pythran</a> (NumPy-focused AOT compiler, niche), <a href="https://github.com/spylang/spy" target="_blank">SPy</a> (Antonio Cuni's static Python dialect — not ready yet but worth watching), and <a href="https://github.com/facebookincubator/cinderx" target="_blank">CinderX</a> (Meta's performance-oriented CPython fork — not ready yet).
 
 *Found an error? <a href="https://github.com/cemrehancavdar/faster-python-bench/pulls" target="_blank">Open a PR.</a>*
