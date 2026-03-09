@@ -230,7 +230,7 @@ One decorator. Restructure data into NumPy arrays. The constraint: Numba works b
 
 **My first Cython n-body got 10.5x.** Same Cython, same compiler. The final version got 124x. The difference was three landmines, none of which produced warnings:
 
-- Using `**` instead of `sqrt()`. Even with typed doubles and `-ffast-math`, Cython's `**` operator with a float exponent goes through a slow dispatch path instead of compiling to a direct C `pow()` call. Decomposing `** (-1.5)` into `sqrt()` + arithmetic: **7x penalty on the overall benchmark.**
+- Cython's `**` operator with float exponents. Even with typed doubles and `-ffast-math`, `x ** 0.5` is 40x slower than `sqrt(x)` in Cython — the operator goes through a slow dispatch path instead of compiling to C's `sqrt()`. The n-body baseline uses `** (-1.5)`, which can't be replaced with a single `sqrt()` call — it required decomposing the formula into `sqrt()` + arithmetic. **7x penalty on the overall benchmark.**
 - Precomputed pair index arrays prevent the C compiler from unrolling the nested loop. **2x penalty.** The "clever" version is slower.
 - Missing `@cython.cdivision(True)` inserts a zero-division check before every floating-point divide in the inner loop. Millions of branches that are never taken.
 
