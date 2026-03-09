@@ -5,7 +5,7 @@ type: post
 tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi]
 draft: false
 subtitle: "every way to make Python fast, benchmarked"
-description: "Python loses every public benchmark by 50-600x. I took the exact problems people use to dunk on Python and climbed every rung of the optimization ladder — from CPython version upgrades to Rust. Real numbers, real code, real effort costs."
+description: "Python loses every public benchmark by 21-875x. I took the exact problems people use to dunk on Python and climbed every rung of the optimization ladder — from CPython version upgrades to Rust. Real numbers, real code, real effort costs."
 ---
 
 Every year, someone posts a benchmark showing Python is 100x slower than C. The same argument plays out: one side says "benchmarks don't matter, real apps are I/O bound," the other says "just use a real language." Both are wrong.
@@ -229,7 +229,7 @@ One decorator. Restructure data into NumPy arrays. The constraint: Numba works b
 
 **My first Cython n-body got 10.5x.** Same algorithm, same Cython, same compiler. The final version got 124x. The difference was three landmines, none of which produced warnings:
 
-- `** 0.5` routes through Python's generic `pow()` instead of C's `sqrt()`. **5x penalty.** No error, no yellow line in the annotation report. The code works, it's just silently slow.
+- `** 0.5` compiles to C's `pow()` instead of C's `sqrt()` — a general-purpose function vs a single hardware instruction. **5x penalty.** No error, no yellow line in the annotation report. The code works, it's just silently slow.
 - Precomputed pair index arrays prevent the C compiler from unrolling the nested loop. **2x penalty.** The "clever" version is slower.
 - Missing `@cython.cdivision(True)` inserts a zero-division check before every floating-point divide in the inner loop. Millions of branches that are never taken.
 
@@ -298,7 +298,7 @@ First, every tool starts from pre-parsed Python dicts — same input, same work:
 
 4.1x. Not 50x. The bottleneck is **Python dict access**. Even Cython's fully optimized version — `@cython.cclass`, C arrays for counters, direct CPython C-API calls (`PyList_GET_ITEM`, `PyDict_GetItem` with borrowed refs) — still reads input dicts through the Python C API.
 
-But wait — why are we feeding Cython Python dicts at all? `json.loads()` takes 53ms to create those dicts. That's more than the entire baseline pipeline. What if Cython reads the raw bytes itself?
+But wait — why are we feeding Cython Python dicts at all? `json.loads()` takes ~57ms to create those dicts. That's more than the entire baseline pipeline. What if Cython reads the raw bytes itself?
 
 I wrote a second Cython pipeline that calls <a href="https://github.com/ibireme/yyjson" target="_blank">yyjson</a> — a general-purpose C JSON parser, comparable to Rust's serde_json. Both are schema-agnostic: they parse any valid JSON, not just our event format. Cython walks the parsed tree with C pointers, filters and aggregates into C structs, and builds Python dicts only for the final output. For Rust, idiomatic serde with zero-copy deserialization. Both own the data end-to-end:
 
@@ -381,7 +381,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 
 ## When to Stop Climbing
 
-The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy (13x) costs a binary swap. Numba (56x) costs one decorator. Cython (99-124x) costs days and C knowledge. Rust (113-154x) costs learning a new language. The jump from 56x to 113x is a 2x improvement that costs 100x more effort.
+The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy (13x) costs a binary swap. Numba (56x) costs a decorator and data restructuring. Cython (99-124x) costs days and C knowledge. Rust (113-154x) costs learning a new language. The jump from 56x to 113x is a 2x improvement that costs 100x more effort.
 
 **Upgrade first.** 3.10 to 3.11 gives you 1.4x for free.
 
