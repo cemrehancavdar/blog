@@ -233,7 +233,7 @@ One decorator. Restructure data into NumPy arrays. The constraint: Numba only un
 - Precomputed pair index arrays prevent the C compiler from unrolling the nested loop. **2x penalty.** The "clever" version is slower.
 - Missing `@cython.cdivision(True)` inserts a zero-division check before every floating-point divide in the inner loop. Millions of branches that are never taken.
 
-Cython's pitch is "just add types to Python." The reality is: learn C's mental model, express it in Python syntax, and use the annotation report (`cython -a`) to verify the compiler did what you think. The full story is in <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cython-minefield.md" target="_blank">The Cython Minefield</a>.
+Cython's promise is that it "makes writing C extensions for Python as easy as Python itself." In practice that means: learn C's mental model, express it in Python syntax, and use the annotation report (`cython -a`) to verify the compiler did what you think. The full story is in <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cython-minefield.md" target="_blank">The Cython Minefield</a>.
 
 The reward is real — 99-124x, matching compiled languages. But the failure mode is silent. If you don't know why `** 0.5` is different from `sqrt()`, Cython will punish you without telling you.
 
