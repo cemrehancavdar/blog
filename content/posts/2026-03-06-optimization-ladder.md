@@ -12,7 +12,7 @@ Every year, someone posts a benchmark showing Python is 100x slower than C. The 
 
 I took two of the most-cited <a href="https://benchmarksgame-team.pages.debian.net/benchmarksgame/" target="_blank">Benchmarks Game</a> problems — **n-body** and **spectral-norm** — reproduced them on my machine, and ran every optimization tool I could find. Then I added a third benchmark — a JSON event pipeline — to test something closer to real-world code.
 
-Same problems, same Apple M4 Pro, real numbers. The full code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
+Same problems, same Apple M4 Pro, real numbers. These are not final, fully-optimized implementations — they're the result of one person climbing each rung and writing the code that felt natural for each tool. A sufficiently motivated expert could squeeze more out of any of them. The full code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
 
 Here's the starting point — CPython 3.13 on the official Benchmarks Game run:
 
@@ -51,7 +51,7 @@ Python int:   [ ob_refcnt  8B ]    reference count
               = 28 bytes minimum
 ```
 
-4 bytes of number, 24 bytes of machinery to support dynamism. `a + b` means: dereference two heap pointers, look up type slots, dispatch to `int.__add__`, allocate a new `PyObject` for the result (unless it hits the small-integer cache), update reference counts. One number isn't slow. Millions in a loop are.
+4 bytes of number, 24 bytes of machinery to support dynamism. `a + b` means: dereference two heap pointers, look up type slots, dispatch to `int.__add__`, allocate a new `PyObject` for the result (unless it hits the small-integer cache), update reference counts. CPython 3.11+ mitigates this with <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">adaptive specialization</a> — hot bytecodes like `BINARY_OP_ADD_INT` skip the dispatch for known types — but the overhead is still there for the general case. One number isn't slow. Millions in a loop are.
 
 The GIL (Global Interpreter Lock) gets blamed a lot, but it has **no impact on single-threaded performance** — it only matters when multiple CPU-bound threads compete for the interpreter. For the benchmarks in this post, the GIL is irrelevant. CPython 3.13 shipped experimental free-threaded mode (`--disable-gil`) — still experimental in 3.14 — but as we'll see, it actually makes single-threaded code *slower* because removing the GIL adds overhead to every reference count operation.
 
@@ -160,7 +160,7 @@ The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwar
 
 </div>
 
-520x. Faster than Rust's 154x on the same problem.
+520x. Faster than our single-threaded Rust at 154x on the same problem — though NumPy delegates to BLAS, which uses multiple cores.
 
 Spectral-norm is matrix-vector multiplication. NumPy pre-computes the matrix once and delegates to BLAS (Apple Accelerate on macOS):
 
