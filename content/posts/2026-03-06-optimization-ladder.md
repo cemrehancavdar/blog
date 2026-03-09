@@ -4,7 +4,7 @@ date: 2026-03-06T20:00:00
 type: post
 tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi]
 draft: false
-unlisted: true
+unlisted: false
 subtitle: "every way to make Python fast, benchmarked"
 description: "Python loses every public benchmark by 21-875x. I took the exact problems people use to dunk on Python and climbed every rung of the optimization ladder — from CPython version upgrades to Rust. Real numbers, real code, real effort costs."
 ---
