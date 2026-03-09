@@ -140,7 +140,7 @@ def advance(dt: float, n: int, bodies: list[Body], pairs: list[BodyPair]) -> Non
             # ...
 ```
 
-The difference from the baseline: explicit type declarations on every local variable so mypyc can use C primitives instead of Python objects, and decomposing `** (-1.5)` into `sqrt()` + arithmetic — a standard numerical optimization that's faster in any language. That's it — no special decorators, no new build system beyond `mypycify()`.
+The difference from the baseline: explicit type declarations on every local variable so mypyc can use C primitives instead of Python objects, and decomposing `** (-1.5)` into `sqrt()` + arithmetic to avoid slow power dispatch. That's it — no special decorators, no new build system beyond `mypycify()`.
 
 The mypy project itself — ~100k+ lines of Python — achieved a <a href="https://github.com/mypyc/mypyc" target="_blank">4x end-to-end speedup</a> by compiling with mypyc. The official docs say "1.5x to 5x" for existing annotated code, "5x to 10x" for code tuned for compilation. The spectral-norm result (14x) lands above that range because the inner loop is pure arithmetic that mypyc compiles directly to C. On our dict-heavy JSON pipeline, mypyc hit 2.3x on pre-parsed dicts — closer to the expected floor.
 
@@ -228,15 +228,15 @@ One decorator. Restructure data into NumPy arrays. The constraint: Numba works b
 
 124x on n-body. Within 10% of Rust. But here's the thing about this rung:
 
-**My first Cython n-body got 10.5x.** Same Cython, same compiler. The final version got 124x. The difference was a numerical optimization and two Cython-specific landmines, none of which produced warnings:
+**My first Cython n-body got 10.5x.** Same Cython, same compiler. The final version got 124x. The difference was three landmines, none of which produced warnings:
 
-- Decomposing `** (-1.5)` into `sqrt()` + arithmetic. `pow(x, -1.5)` is expensive in any language — even in pure C it's 10x slower than computing `1/(x * sqrt(x))`. Not a Cython bug, just math you need to know when writing numerical code.
+- Using `**` instead of `sqrt()`. Even with typed doubles and `-ffast-math`, Cython's `**` operator with a float exponent goes through a slow dispatch path instead of compiling to a direct C `pow()` call. Decomposing `** (-1.5)` into `sqrt()` + arithmetic: **7x penalty on the overall benchmark.**
 - Precomputed pair index arrays prevent the C compiler from unrolling the nested loop. **2x penalty.** The "clever" version is slower.
 - Missing `@cython.cdivision(True)` inserts a zero-division check before every floating-point divide in the inner loop. Millions of branches that are never taken.
 
 Cython's promise is that it "makes writing C extensions for Python as easy as Python itself." In practice that means: learn C's mental model, express it in Python syntax, and use the annotation report (`cython -a`) to verify the compiler did what you think. The full story is in <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cython-minefield.md" target="_blank">The Cython Minefield</a>.
 
-The reward is real — 99-124x, matching compiled languages. But the failure mode is silent. The two Cython-specific landmines (pair arrays, cdivision) cost you silently, and the annotation report is the only way to catch them.
+The reward is real — 99-124x, matching compiled languages. But the failure mode is silent. All three landmines cost you silently, and the annotation report is the only way to catch them.
 
 ---
 
