@@ -2,7 +2,7 @@
 title: "The Optimization Ladder"
 date: 2026-03-06T20:00:00
 type: post
-tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi]
+tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi, graalpy, pypy]
 draft: false
 unlisted: false
 subtitle: "every way to make Python fast, benchmarked"
@@ -86,22 +86,25 @@ This rung costs nothing. If you're still on 3.10, upgrade.
 
 ---
 
-## Rung 1: PyPy
+## Rung 1: Alternative Runtimes (PyPy, GraalPy)
 
-**Cost: switching interpreters. Reward: 13x.**
+**Cost: switching interpreters. Reward: 6-66x.**
 
 <div class="bench-table">
 
 | | N-body | Spectral-norm |
 |---|---|---|
 | CPython 3.14 | 1,242ms | 14,046ms |
+| GraalPy | 211ms (**5.9x**) | 212ms (**66x**) |
 | PyPy | 98ms (**13x**) | 1,065ms (**13x**) |
 
 </div>
 
-PyPy traces your hot loops and generates native machine code. Zero code changes. Just a different interpreter.
+Both are JIT-compiled runtimes that generate native machine code from your unmodified Python. Zero code changes. Just a different interpreter.
 
-The catch: ecosystem compatibility. Major packages like NumPy and pandas now support PyPy, but C extensions run through a compatibility layer (`cpyext`) that can be slower than on CPython. Niche packages may not work at all. For pure Python code — CLI tools, data transformers, text processors — PyPy is free speed.
+PyPy uses a tracing JIT — it records hot loops and compiles them. GraalPy runs on GraalVM's Truffle framework with a method-based JIT. PyPy wins on n-body (13x vs 5.9x), but GraalPy dominates spectral-norm (66x vs 13x) — the matrix-heavy inner loop plays to GraalVM's strengths. GraalPy also offers Java interop and is actively developed by Oracle.
+
+The catch: ecosystem compatibility. Both support major packages, but C extensions run through compatibility layers that can be slower than on CPython. GraalPy is on Python 3.12 (no 3.14 yet). For pure Python code — CLI tools, data transformers, text processors — these are free speed.
 
 ---
 
@@ -333,6 +336,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 | CPython 3.14 | 1,242ms | 1.0x | Nothing |
 | CPython 3.14t | 1,513ms | 0.82x | GIL-free but slower single-thread |
 | Mypyc | 518ms | 2.4x | Type annotations |
+| GraalPy | 211ms | 5.9x | Python 3.12 only, ecosystem compatibility |
 | PyPy | 98ms | 13x | Ecosystem compatibility |
 | Codon | 47ms | 26x | Separate runtime, limited stdlib |
 | Numba | 22ms | 56x | `@njit` + NumPy arrays |
@@ -353,6 +357,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 | CPython 3.14 | 14,046ms | 1.0x | Nothing |
 | CPython 3.14t | 14,551ms | 0.97x | GIL-free but slower single-thread |
 | Mypyc | 990ms | 14x | Type annotations |
+| GraalPy | 212ms | 66x | Python 3.12 only, ecosystem compatibility |
 | PyPy | 1,065ms | 13x | Ecosystem compatibility |
 | Codon | 99ms | 142x | Separate runtime, limited stdlib |
 | Numba | 104ms | 135x | `@njit` + NumPy arrays |
@@ -382,7 +387,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 
 ## When to Stop Climbing
 
-The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy (13x) costs a binary swap. Numba (56x) costs a decorator and data restructuring. Cython (99-124x) costs days and C knowledge. Rust (113-154x) costs learning a new language. The jump from 56x to 113x is a 2x improvement that costs 100x more effort.
+The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/GraalPy (6-66x) costs a binary swap. Numba (56x) costs a decorator and data restructuring. Cython (99-124x) costs days and C knowledge. Rust (113-154x) costs learning a new language. The jump from 56x to 113x is a 2x improvement that costs 100x more effort.
 
 **Upgrade first.** 3.10 to 3.11 gives you 1.4x for free.
 
@@ -396,7 +401,7 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy (1
 
 **Rust for pipeline ownership.** On pure compute, Cython and Rust are neck and neck. The real advantage is when Rust owns the data flow end-to-end.
 
-**PyPy for pure Python.** 13x for zero code changes is remarkable, if your dependencies support it.
+**PyPy or GraalPy for pure Python.** 6-66x for zero code changes is remarkable, if your dependencies support it. GraalPy's spectral-norm result (66x) rivals compiled solutions.
 
 **Most code doesn't need any of this.** The pipeline benchmark — the most realistic of the three — topped out at 4.1x when starting from Python dicts. 6.3x when Cython called yyjson and owned the bytes. If your hot path is `dict[str, Any]`, the answer might be "stop creating dicts," not "change the language." And if your code is I/O bound, none of this matters at all.
 
