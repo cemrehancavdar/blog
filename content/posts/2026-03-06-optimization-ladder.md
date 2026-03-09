@@ -36,7 +36,7 @@ The question isn't whether Python is slow at computation. It is. The question is
 
 The usual suspects are the GIL, interpretation, and dynamic typing. All three matter, but none of them is the real story. The real story is that Python is designed to be *maximally dynamic* — you can monkey-patch methods at runtime, replace builtins, change a class's inheritance chain while instances exist — and that design makes it **fundamentally hard to optimize**.
 
-A C compiler sees `a + b` between two integers and emits one CPU instruction. The Python VM sees `a + b` and has to ask: what is `a`? What is `b`? Does `a.__add__` exist? Has it been replaced since the last call? Did someone monkey-patch `int.__add__`? Every operation goes through this dispatch because the language *guarantees* you can change anything at any time.
+A C compiler sees `a + b` between two integers and emits one CPU instruction. The Python VM sees `a + b` and has to ask: what is `a`? What is `b`? Does `a.__add__` exist? Has it been replaced since the last call? Is `a` actually a subclass of `int` that overrides `__add__`? Every operation goes through this dispatch because the language *guarantees* you can change anything at any time.
 
 The object overhead is where this shows up concretely. In C, an integer is 4 bytes on the stack. In Python:
 
