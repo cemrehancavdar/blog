@@ -12,7 +12,7 @@ Every year, someone posts a benchmark showing Python is 100x slower than C. The 
 
 I took two of the most-cited <a href="https://benchmarksgame-team.pages.debian.net/benchmarksgame/" target="_blank">Benchmarks Game</a> problems — **n-body** and **spectral-norm** — reproduced them on my machine, and ran every optimization tool I could find. Then I added a third benchmark — a JSON event pipeline — to test something closer to real-world code.
 
-Same problems, same Apple M4 Pro, real numbers. These are not final, fully-optimized implementations — they're the result of one person climbing each rung and writing the code that felt natural for each tool. A sufficiently motivated expert could squeeze more out of any of them. The full code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
+Same problems, same Apple M4 Pro, real numbers. This is one developer's journey up the ladder — not a definitive ranking. A dedicated expert could squeeze more out of any of these tools. The full code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
 
 Here's the starting point — CPython 3.13 on the official Benchmarks Game run:
 
