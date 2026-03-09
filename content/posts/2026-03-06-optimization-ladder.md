@@ -401,3 +401,5 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy (1
 **Most code doesn't need any of this.** The pipeline benchmark — the most realistic of the three — topped out at 4.1x when starting from Python dicts. 6.3x when Cython called yyjson and owned the bytes. If your hot path is `dict[str, Any]`, the answer might be "stop creating dicts," not "change the language." And if your code is I/O bound, none of this matters at all.
 
 <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/profiling.md" target="_blank">Profile before you optimize.</a> `cProfile` to find the function. `line_profiler` to find the line. Then pick the right rung.
+
+*Found an error? <a href="https://github.com/cemrehancavdar/faster-python-bench/pulls" target="_blank">Open a PR.</a>*
