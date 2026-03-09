@@ -22,9 +22,9 @@ Here's the starting point — CPython 3.13 on the official Benchmarks Game run:
 |---|---|---|---|
 | n-body (50M) | 2.1s | 372s | **177x** |
 | spectral-norm (5500) | 0.4s | 350s | **875x** |
-| fannkuch-redux (12) | 2.1s | 311s | **148x** |
-| mandelbrot (16000) | 0.9s | 183s | **203x** |
-| binary-trees (21) | 1.0s | 33s | **33x** |
+| fannkuch-redux (12) | 2.1s | 311s | **145x** |
+| mandelbrot (16000) | 1.3s | 183s | **142x** |
+| binary-trees (21) | 1.6s | 33s | **21x** |
 
 </div>
 
