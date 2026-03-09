@@ -250,7 +250,7 @@ Three tools promise to compile Python (or Python-like code) to native machine co
 | | N-body | Speedup | Spectral-norm | Speedup | The catch |
 |---|---|---|---|---|---|
 | Codon 0.19 | 47ms | **26x** | 99ms | **142x** | Own runtime, no stdlib, standalone binaries only |
-| Mojo nightly | 16ms | **78x** | 118ms | **119x** | New language (pre-1.0), needs pixi, full rewrite required |
+| Mojo nightly | 16ms | **78x** | 118ms | **119x** | New language (pre-1.0), full rewrite required |
 | Taichi 1.7 | 16ms | **78x** | 74ms | **190x** | Python 3.13 only (no 3.14 wheels) |
 
 </div>
