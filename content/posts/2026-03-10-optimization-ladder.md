@@ -6,16 +6,16 @@ tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, 
 draft: false
 unlisted: false
 subtitle: "every way to make Python fast, benchmarked"
-description: "Python loses every public benchmark by 21-875x. I took the exact problems people use to dunk on Python and climbed every rung of the optimization ladder — from CPython version upgrades to Rust. Real numbers, real code, real effort costs."
+description: "Python loses every public benchmark by 21-875x. I took the exact problems people use to dunk on Python and climbed every rung of the optimization ladder -- from CPython version upgrades to Rust. Real numbers, real code, real effort costs."
 ---
 
 Every year, someone posts a benchmark showing Python is 100x slower than C. The same argument plays out: one side says "benchmarks don't matter, real apps are I/O bound," the other says "just use a real language." Both are wrong.
 
-I took two of the most-cited <a href="https://benchmarksgame-team.pages.debian.net/benchmarksgame/" target="_blank">Benchmarks Game</a> problems — **n-body** and **spectral-norm** — reproduced them on my machine, and ran every optimization tool I could find. Then I added a third benchmark — a JSON event pipeline — to test something closer to real-world code.
+I took two of the most-cited <a href="https://benchmarksgame-team.pages.debian.net/benchmarksgame/" target="_blank">Benchmarks Game</a> problems -- **n-body** and **spectral-norm** -- reproduced them on my machine, and ran every optimization tool I could find. Then I added a third benchmark -- a JSON event pipeline -- to test something closer to real-world code.
 
-Same problems, same Apple M4 Pro, real numbers. This is one developer's journey up the ladder — not a definitive ranking. A dedicated expert could squeeze more out of any of these tools. The full code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
+Same problems, same Apple M4 Pro, real numbers. This is one developer's journey up the ladder -- not a definitive ranking. A dedicated expert could squeeze more out of any of these tools. The full code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
 
-Here's the starting point — CPython 3.13 on the official Benchmarks Game run:
+Here's the starting point -- CPython 3.13 on the official Benchmarks Game run:
 
 <div class="bench-table">
 
@@ -35,7 +35,7 @@ The question isn't whether Python is slow at computation. It is. The question is
 
 ## Why Python Is Slow
 
-The usual suspects are the GIL, interpretation, and dynamic typing. All three matter, but none of them is the real story. The real story is that Python is designed to be *maximally dynamic* — you can monkey-patch methods at runtime, replace builtins, change a class's inheritance chain while instances exist — and that design makes it **fundamentally hard to optimize**.
+The usual suspects are the GIL, interpretation, and dynamic typing. All three matter, but none of them is the real story. The real story is that Python is designed to be *maximally dynamic* -- you can monkey-patch methods at runtime, replace builtins, change a class's inheritance chain while instances exist -- and that design makes it **fundamentally hard to optimize**.
 
 A C compiler sees `a + b` between two integers and emits one CPU instruction. The Python VM sees `a + b` and has to ask: what is `a`? What is `b`? Does `a.__add__` exist? Has it been replaced since the last call? Is `a` actually a subclass of `int` that overrides `__add__`? Every operation goes through this dispatch because the language *guarantees* you can change anything at any time.
 
@@ -52,13 +52,13 @@ Python int:   [ ob_refcnt  8B ]    reference count
               = 28 bytes minimum
 ```
 
-4 bytes of number, 24 bytes of machinery to support dynamism. `a + b` means: dereference two heap pointers, look up type slots, dispatch to `int.__add__`, allocate a new `PyObject` for the result (unless it hits the small-integer cache), update reference counts. CPython 3.11+ mitigates this with <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">adaptive specialization</a> — hot bytecodes like `BINARY_OP_ADD_INT` skip the dispatch for known types — but the overhead is still there for the general case. One number isn't slow. Millions in a loop are.
+4 bytes of number, 24 bytes of machinery to support dynamism. `a + b` means: dereference two heap pointers, look up type slots, dispatch to `int.__add__`, allocate a new `PyObject` for the result (unless it hits the small-integer cache), update reference counts. CPython 3.11+ mitigates this with <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">adaptive specialization</a> -- hot bytecodes like `BINARY_OP_ADD_INT` skip the dispatch for known types -- but the overhead is still there for the general case. One number isn't slow. Millions in a loop are.
 
-The GIL (Global Interpreter Lock) gets blamed a lot, but it has **no impact on single-threaded performance** — it only matters when multiple CPU-bound threads compete for the interpreter. For the benchmarks in this post, the GIL is irrelevant. CPython 3.13 shipped experimental free-threaded mode (`--disable-gil`) — still experimental in 3.14 — but as we'll see, it actually makes single-threaded code *slower* because removing the GIL adds overhead to every reference count operation.
+The GIL (Global Interpreter Lock) gets blamed a lot, but it has **no impact on single-threaded performance** -- it only matters when multiple CPU-bound threads compete for the interpreter. For the benchmarks in this post, the GIL is irrelevant. CPython 3.13 shipped experimental free-threaded mode (`--disable-gil`) -- still experimental in 3.14 -- but as we'll see, it actually makes single-threaded code *slower* because removing the GIL adds overhead to every reference count operation.
 
-The interpretation overhead is real but is being actively addressed. CPython 3.11's <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">Faster CPython</a> project added adaptive specialization — the VM detects "hot" bytecodes and replaces them with type-specialized versions, skipping some of the dispatch. It helped (~1.4x). CPython 3.13 went further with an experimental <a href="https://docs.python.org/3/whatsnew/3.13.html#an-experimental-jit-compiler" target="_blank">copy-and-patch JIT compiler</a> — a lightweight JIT that stitches together pre-compiled machine code templates instead of generating code from scratch. It's not a full optimizing JIT like V8's TurboFan or a tracing JIT like PyPy's; it's designed to be small and fast to start, avoiding the heavyweight JIT startup cost that has historically kept CPython from going this route. Early results are modest (single-digit percent improvements), but the infrastructure is now in place for more aggressive optimizations in future releases. JavaScript's V8 achieves much better JIT results, but V8 also had a large dedicated team and a single-threaded JavaScript execution model that makes speculative optimization easier. (For more on the "why doesn't CPython JIT" question, see Anthony Shaw's <a href="https://tonybaloney.github.io/posts/why-is-python-so-slow.html#so-why-doesnt-cpython-use-a-jit" target="_blank">"Why is Python so slow?"</a>.)
+The interpretation overhead is real but is being actively addressed. CPython 3.11's <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">Faster CPython</a> project added adaptive specialization -- the VM detects "hot" bytecodes and replaces them with type-specialized versions, skipping some of the dispatch. It helped (~1.4x). CPython 3.13 went further with an experimental <a href="https://docs.python.org/3/whatsnew/3.13.html#an-experimental-jit-compiler" target="_blank">copy-and-patch JIT compiler</a> -- a lightweight JIT that stitches together pre-compiled machine code templates instead of generating code from scratch. It's not a full optimizing JIT like V8's TurboFan or a tracing JIT like PyPy's; it's designed to be small and fast to start, avoiding the heavyweight JIT startup cost that has historically kept CPython from going this route. Early results are modest (single-digit percent improvements), but the infrastructure is now in place for more aggressive optimizations in future releases. JavaScript's V8 achieves much better JIT results, but V8 also had a large dedicated team and a single-threaded JavaScript execution model that makes speculative optimization easier. (For more on the "why doesn't CPython JIT" question, see Anthony Shaw's <a href="https://tonybaloney.github.io/posts/why-is-python-so-slow.html#so-why-doesnt-cpython-use-a-jit" target="_blank">"Why is Python so slow?"</a>.)
 
-So the picture is: **Python is slow because its dynamic design requires runtime dispatch on every operation.** The GIL, the interpreter, the object model — these are all consequences of that design choice. Each rung of the ladder removes some of this dispatch. The higher you climb, the more you bypass — and the more effort it costs.
+So the picture is: **Python is slow because its dynamic design requires runtime dispatch on every operation.** The GIL, the interpreter, the object model -- these are all consequences of that design choice. Each rung of the ladder removes some of this dispatch. The higher you climb, the more you bypass -- and the more effort it costs.
 
 ---
 
@@ -78,7 +78,7 @@ So the picture is: **Python is slow because its dynamic design requires runtime 
 
 </div>
 
-The story is **3.10 to 3.11**: a 1.39x speedup on n-body, for free. That's the <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">Faster CPython</a> project — adaptive specialization of bytecodes, inline caching, zero-cost exceptions. 3.13 squeezed out a bit more. 3.14 gave some of it back — a minor regression on these benchmarks, likely due to internal refactoring for the new JIT infrastructure.
+The story is **3.10 to 3.11**: a 1.39x speedup on n-body, for free. That's the <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">Faster CPython</a> project -- adaptive specialization of bytecodes, inline caching, zero-cost exceptions. 3.13 squeezed out a bit more. 3.14 gave some of it back -- a minor regression on these benchmarks, likely due to internal refactoring for the new JIT infrastructure.
 
 Free-threaded Python (3.14t) is **slower** on single-threaded code. The GIL removal adds overhead to every reference count operation. Worth it only if you have genuinely parallel CPU-bound threads. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cpython-versions.md" target="_blank">Full version comparison</a>)
 
@@ -102,9 +102,9 @@ This rung costs nothing. If you're still on 3.10, upgrade.
 
 Both are JIT-compiled runtimes that generate native machine code from your unmodified Python. Zero code changes. Just a different interpreter.
 
-PyPy uses a tracing JIT — it records hot loops and compiles them. GraalPy runs on GraalVM's Truffle framework with a method-based JIT. PyPy wins on n-body (13x vs 5.9x), but GraalPy dominates spectral-norm (66x vs 13x) — the matrix-heavy inner loop plays to GraalVM's strengths. GraalPy also offers Java interop and is actively developed by Oracle.
+PyPy uses a tracing JIT -- it records hot loops and compiles them. GraalPy runs on GraalVM's Truffle framework with a method-based JIT. PyPy wins on n-body (13x vs 5.9x), but GraalPy dominates spectral-norm (66x vs 13x) -- the matrix-heavy inner loop plays to GraalVM's strengths. GraalPy also offers Java interop and is actively developed by Oracle.
 
-The catch: ecosystem compatibility. Both support major packages, but C extensions run through compatibility layers that can be slower than on CPython. GraalPy is on Python 3.12 (no 3.14 yet) and has slow startup — it's JVM-based, so the JIT needs warmup before reaching peak performance. For pure Python code with long-running hot loops — these are free speed.
+The catch: ecosystem compatibility. Both support major packages, but C extensions run through compatibility layers that can be slower than on CPython. GraalPy is on Python 3.12 (no 3.14 yet) and has slow startup -- it's JVM-based, so the JIT needs warmup before reaching peak performance. For pure Python code with long-running hot loops -- these are free speed.
 
 ---
 
@@ -121,10 +121,10 @@ The catch: ecosystem compatibility. Both support major packages, but C extension
 
 </div>
 
-Mypyc compiles type-annotated Python to C extensions using the same type analysis as mypy. No new syntax, no new language — just your existing typed Python, compiled ahead of time.
+Mypyc compiles type-annotated Python to C extensions using the same type analysis as mypy. No new syntax, no new language -- just your existing typed Python, compiled ahead of time.
 
 ```python
-# Already valid typed Python — mypyc compiles this to C
+# Already valid typed Python -- mypyc compiles this to C
 def advance(dt: float, n: int, bodies: list[Body], pairs: list[BodyPair]) -> None:
     dx: float
     dy: float
@@ -143,11 +143,11 @@ def advance(dt: float, n: int, bodies: list[Body], pairs: list[BodyPair]) -> Non
             # ...
 ```
 
-The difference from the baseline: explicit type declarations on every local variable so mypyc can use C primitives instead of Python objects, and decomposing `** (-1.5)` into `sqrt()` + arithmetic to avoid slow power dispatch. That's it — no special decorators, no new build system beyond `mypycify()`.
+The difference from the baseline: explicit type declarations on every local variable so mypyc can use C primitives instead of Python objects, and decomposing `** (-1.5)` into `sqrt()` + arithmetic to avoid slow power dispatch. That's it -- no special decorators, no new build system beyond `mypycify()`.
 
-The mypy project itself — ~100k+ lines of Python — achieved a <a href="https://github.com/mypyc/mypyc" target="_blank">4x end-to-end speedup</a> by compiling with mypyc. The official docs say "1.5x to 5x" for existing annotated code, "5x to 10x" for code tuned for compilation. The spectral-norm result (14x) lands above that range because the inner loop is pure arithmetic that mypyc compiles directly to C. On our dict-heavy JSON pipeline, mypyc hit 2.3x on pre-parsed dicts — closer to the expected floor.
+The mypy project itself -- ~100k+ lines of Python -- achieved a <a href="https://github.com/mypyc/mypyc" target="_blank">4x end-to-end speedup</a> by compiling with mypyc. The official docs say "1.5x to 5x" for existing annotated code, "5x to 10x" for code tuned for compilation. The spectral-norm result (14x) lands above that range because the inner loop is pure arithmetic that mypyc compiles directly to C. On our dict-heavy JSON pipeline, mypyc hit 2.3x on pre-parsed dicts -- closer to the expected floor.
 
-The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwargs`, `getattr` tricks, and heavily duck-typed code will compile but won't be optimized — they fall back to slow generic paths. But if your code already passes mypy strict mode, mypyc is the lowest-effort compilation rung on the ladder.
+The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwargs`, `getattr` tricks, and heavily duck-typed code will compile but won't be optimized -- they fall back to slow generic paths. But if your code already passes mypy strict mode, mypyc is the lowest-effort compilation rung on the ladder.
 
 ---
 
@@ -164,7 +164,7 @@ The constraint: mypyc supports a subset of Python. Dynamic patterns like `**kwar
 
 </div>
 
-520x. Faster than our single-threaded Rust at 154x on the same problem — though NumPy delegates to BLAS, which uses multiple cores.
+520x. Faster than our single-threaded Rust at 154x on the same problem -- though NumPy delegates to BLAS, which uses multiple cores.
 
 Spectral-norm is matrix-vector multiplication. NumPy pre-computes the matrix once and delegates to BLAS (Apple Accelerate on macOS):
 
@@ -175,11 +175,11 @@ for _ in range(10):
     u = a.T @ (a @ v)
 ```
 
-Each `@` is a single call to hand-optimized BLAS with SIMD and multithreading. NumPy trades O(N) memory for O(N^2) memory — it stores the full 2000x2000 matrix (30MB) — but the computation is done in compiled C/C++ (Apple Accelerate on macOS, OpenBLAS or MKL on Linux), not Python.
+Each `@` is a single call to hand-optimized BLAS with SIMD and multithreading. NumPy trades O(N) memory for O(N^2) memory -- it stores the full 2000x2000 matrix (30MB) -- but the computation is done in compiled C/C++ (Apple Accelerate on macOS, OpenBLAS or MKL on Linux), not Python.
 
 This is the lesson people miss when they say "Python is slow." Python the loop runner is slow. Python the orchestrator of compiled libraries is as fast as anything.
 
-The constraint: your problem must fit vectorized operations. Element-wise math, matrix algebra, reductions — NumPy handles these. Irregular access patterns, conditionals per element, recursive structures — it doesn't.
+The constraint: your problem must fit vectorized operations. Element-wise math, matrix algebra, reductions -- NumPy handles these. Irregular access patterns, conditionals per element, recursive structures -- it doesn't.
 
 ---
 
@@ -233,13 +233,13 @@ One decorator. Restructure data into NumPy arrays. The constraint: Numba works b
 
 **My first Cython n-body got 10.5x.** Same Cython, same compiler. The final version got 124x. The difference was three landmines, none of which produced warnings:
 
-- Cython's `**` operator with float exponents. Even with typed doubles and `-ffast-math`, `x ** 0.5` is 40x slower than `sqrt(x)` in Cython — the operator goes through a slow dispatch path instead of compiling to C's `sqrt()`. The n-body baseline uses `** (-1.5)`, which can't be replaced with a single `sqrt()` call — it required decomposing the formula into `sqrt()` + arithmetic. **7x penalty on the overall benchmark.**
+- Cython's `**` operator with float exponents. Even with typed doubles and `-ffast-math`, `x ** 0.5` is 40x slower than `sqrt(x)` in Cython -- the operator goes through a slow dispatch path instead of compiling to C's `sqrt()`. The n-body baseline uses `** (-1.5)`, which can't be replaced with a single `sqrt()` call -- it required decomposing the formula into `sqrt()` + arithmetic. **7x penalty on the overall benchmark.**
 - Precomputed pair index arrays prevent the C compiler from unrolling the nested loop. **2x penalty.** The "clever" version is slower.
 - Missing `@cython.cdivision(True)` inserts a zero-division check before every floating-point divide in the inner loop. Millions of branches that are never taken.
 
 Cython's promise is that it "makes writing C extensions for Python as easy as Python itself." In practice that means: learn C's mental model, express it in Python syntax, and use the annotation report (`cython -a`) to verify the compiler did what you think. The full story is in <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cython-minefield.md" target="_blank">The Cython Minefield</a>.
 
-The reward is real — 99-124x, matching compiled languages. But the failure mode is silent. All three landmines cost you silently, and the annotation report is the only way to catch them.
+The reward is real -- 99-124x, matching compiled languages. But the failure mode is silent. All three landmines cost you silently, and the annotation report is the only way to catch them.
 
 ---
 
@@ -259,7 +259,7 @@ Three tools promise to compile Python (or Python-like code) to native machine co
 
 </div>
 
-The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes. Taichi has the best spectral-norm result (198x) but **doesn't ship wheels for Python 3.14** — its numbers above were benchmarked on a separate Python 3.13 environment. That's the compromise with these tools: if your runtime doesn't keep up with CPython releases, you're stuck on an old version or juggling multiple environments. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
+The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes. Taichi has the best spectral-norm result (198x) but **doesn't ship wheels for Python 3.14** -- its numbers above were benchmarked on a separate Python 3.13 environment. That's the compromise with these tools: if your runtime doesn't keep up with CPython releases, you're stuck on an old version or juggling multiple environments. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
 
 None are drop-in. All are worth watching.
 
@@ -278,17 +278,17 @@ None are drop-in. All are worth watching.
 
 </div>
 
-The top of the ladder. But notice: on n-body, Cython at 10ms vs Rust at 11ms — they're essentially tied. Both compiled to native machine code. The remaining difference is noise, not a fundamental language gap.
+The top of the ladder. But notice: on n-body, Cython at 10ms vs Rust at 11ms -- they're essentially tied. Both compiled to native machine code. The remaining difference is noise, not a fundamental language gap.
 
-The real Rust advantage isn't raw speed — it's **pipeline ownership**. When Rust parses JSON directly with serde into typed structs, it never creates a Python dict. It bypasses the Python object system entirely. That matters more on the next benchmark.
+The real Rust advantage isn't raw speed -- it's **pipeline ownership**. When Rust parses JSON directly with serde into typed structs, it never creates a Python dict. It bypasses the Python object system entirely. That matters more on the next benchmark.
 
 ---
 
 ## The Ceiling
 
-The Benchmarks Game problems are pure compute: tight loops, no I/O, no data structures beyond arrays. Most Python code looks nothing like that. So I built a third benchmark: load 100K JSON events, filter, transform, aggregate per user. Dicts, strings, datetime parsing — the kind of code that makes Numba useless and makes Cython fight the Python object system.
+The Benchmarks Game problems are pure compute: tight loops, no I/O, no data structures beyond arrays. Most Python code looks nothing like that. So I built a third benchmark: load 100K JSON events, filter, transform, aggregate per user. Dicts, strings, datetime parsing -- the kind of code that makes Numba useless and makes Cython fight the Python object system.
 
-First, every tool starts from pre-parsed Python dicts — same input, same work:
+First, every tool starts from pre-parsed Python dicts -- same input, same work:
 
 <div class="bench-table">
 
@@ -300,11 +300,11 @@ First, every tool starts from pre-parsed Python dicts — same input, same work:
 
 </div>
 
-4.1x. Not 50x. The bottleneck is **Python dict access**. Even Cython's fully optimized version — `@cython.cclass`, C arrays for counters, direct CPython C-API calls (`PyList_GET_ITEM`, `PyDict_GetItem` with borrowed refs) — still reads input dicts through the Python C API.
+4.1x. Not 50x. The bottleneck is **Python dict access**. Even Cython's fully optimized version -- `@cython.cclass`, C arrays for counters, direct CPython C-API calls (`PyList_GET_ITEM`, `PyDict_GetItem` with borrowed refs) -- still reads input dicts through the Python C API.
 
-But wait — why are we feeding Cython Python dicts at all? `json.loads()` takes ~57ms to create those dicts. That's more than the entire baseline pipeline. What if Cython reads the raw bytes itself?
+But wait -- why are we feeding Cython Python dicts at all? `json.loads()` takes ~57ms to create those dicts. That's more than the entire baseline pipeline. What if Cython reads the raw bytes itself?
 
-I wrote a second Cython pipeline that calls <a href="https://github.com/ibireme/yyjson" target="_blank">yyjson</a> — a general-purpose C JSON parser, comparable to Rust's serde_json. Both are schema-agnostic: they parse any valid JSON, not just our event format. Cython walks the parsed tree with C pointers, filters and aggregates into C structs, and builds Python dicts only for the final output. For Rust, idiomatic serde with zero-copy deserialization. Both own the data end-to-end:
+I wrote a second Cython pipeline that calls <a href="https://github.com/ibireme/yyjson" target="_blank">yyjson</a> -- a general-purpose C JSON parser, comparable to Rust's serde_json. Both are schema-agnostic: they parse any valid JSON, not just our event format. Cython walks the parsed tree with C pointers, filters and aggregates into C structs, and builds Python dicts only for the final output. For Rust, idiomatic serde with zero-copy deserialization. Both own the data end-to-end:
 
 <div class="bench-table">
 
@@ -318,9 +318,9 @@ I wrote a second Cython pipeline that calls <a href="https://github.com/ibireme/
 
 </div>
 
-**6.3x for Cython, 5.0x for Rust.** The ceiling was never the pipeline code — it was `json.loads()`. Both approaches use general-purpose JSON parsers — yyjson on the Cython side, serde on the Rust side — and both avoid Python objects entirely in the hot loop: Cython walks yyjson's C tree into C structs, Rust deserializes into native structs via serde.
+**6.3x for Cython, 5.0x for Rust.** The ceiling was never the pipeline code -- it was `json.loads()`. Both approaches use general-purpose JSON parsers -- yyjson on the Cython side, serde on the Rust side -- and both avoid Python objects entirely in the hot loop: Cython walks yyjson's C tree into C structs, Rust deserializes into native structs via serde.
 
-I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motivated person could make either one faster — swap parsers, tune allocators, restructure the pipeline. The point isn't which tool wins this specific benchmark. The point is *how many rungs you're willing to climb*. Both land in the same neighborhood once you bypass `json.loads()`. The code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
+I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motivated person could make either one faster -- swap parsers, tune allocators, restructure the pipeline. The point isn't which tool wins this specific benchmark. The point is *how many rungs you're willing to climb*. Both land in the same neighborhood once you bypass `json.loads()`. The code is at <a href="https://github.com/cemrehancavdar/faster-python-bench" target="_blank">faster-python-bench</a>.
 
 ---
 
@@ -403,10 +403,10 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 
 **PyPy or GraalPy for pure Python.** 6-66x for zero code changes is remarkable, if your dependencies support it. GraalPy's spectral-norm result (66x) rivals compiled solutions.
 
-**Most code doesn't need any of this.** The pipeline benchmark — the most realistic of the three — topped out at 4.1x when starting from Python dicts. 6.3x when Cython called yyjson and owned the bytes. If your hot path is `dict[str, Any]`, the answer might be "stop creating dicts," not "change the language." And if your code is I/O bound, none of this matters at all.
+**Most code doesn't need any of this.** The pipeline benchmark -- the most realistic of the three -- topped out at 4.1x when starting from Python dicts. 6.3x when Cython called yyjson and owned the bytes. If your hot path is `dict[str, Any]`, the answer might be "stop creating dicts," not "change the language." And if your code is I/O bound, none of this matters at all.
 
 <a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/profiling.md" target="_blank">Profile before you optimize.</a> `cProfile` to find the function. `line_profiler` to find the line. Then pick the right rung.
 
-**Not covered:** <a href="https://nuitka.net/" target="_blank">Nuitka</a> (Python-to-C compiler, mostly used for packaging — speedups are in the Mypyc range), <a href="https://pythran.readthedocs.io/" target="_blank">Pythran</a> (NumPy-focused AOT compiler, niche), <a href="https://github.com/spylang/spy" target="_blank">SPy</a> (Antonio Cuni's static Python dialect — not ready yet but worth watching), and <a href="https://github.com/facebookincubator/cinderx" target="_blank">CinderX</a> (Meta's performance-oriented CPython fork — not ready yet).
+**Not covered:** <a href="https://nuitka.net/" target="_blank">Nuitka</a> (Python-to-C compiler, mostly used for packaging -- speedups are in the Mypyc range), <a href="https://pythran.readthedocs.io/" target="_blank">Pythran</a> (NumPy-focused AOT compiler, niche), <a href="https://github.com/spylang/spy" target="_blank">SPy</a> (Antonio Cuni's static Python dialect -- not ready yet but worth watching), and <a href="https://github.com/facebookincubator/cinderx" target="_blank">CinderX</a> (Meta's performance-oriented CPython fork -- not ready yet).
 
 *Found an error? <a href="https://github.com/cemrehancavdar/faster-python-bench/pulls" target="_blank">Open a PR.</a>*
