@@ -52,6 +52,8 @@ Python int:   [ ob_refcnt  8B ]    reference count
               = 28 bytes minimum
 ```
 
+(Simplified -- CPython 3.12+ renamed `ob_size` to `lv_tag`, packing digit count, sign and flags into one field. Total is still 28 bytes. See <a href="https://github.com/python/cpython/blob/main/Include/cpython/longintrepr.h" target="_blank">longintrepr.h</a>.)
+
 4 bytes of number, 24 bytes of machinery to support dynamism. `a + b` means: dereference two heap pointers, look up type slots, dispatch to `int.__add__`, allocate a new `PyObject` for the result (unless it hits the small-integer cache), update reference counts. CPython 3.11+ mitigates this with <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">adaptive specialization</a> -- hot bytecodes like `BINARY_OP_ADD_INT` skip the dispatch for known types -- but the overhead is still there for the general case. One number isn't slow. Millions in a loop are.
 
 The GIL (Global Interpreter Lock) gets blamed a lot, but it has **no impact on single-threaded performance** -- it only matters when multiple CPU-bound threads compete for the interpreter. For the benchmarks in this post, the GIL is irrelevant. CPython 3.13 shipped experimental free-threaded mode (`--disable-gil`) -- still experimental in 3.14 -- but as we'll see, it actually makes single-threaded code *slower* because removing the GIL adds overhead to every reference count operation.
