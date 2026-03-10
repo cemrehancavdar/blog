@@ -181,7 +181,7 @@ Each `@` is a single call to hand-optimized BLAS with SIMD and multithreading. N
 
 This is the lesson people miss when they say "Python is slow." Python the loop runner is slow. Python the orchestrator of compiled libraries is as fast as anything.
 
-The constraint: your problem must fit vectorized operations. Element-wise math, matrix algebra, reductions -- NumPy handles these. Irregular access patterns, conditionals per element, recursive structures -- it doesn't.
+The constraint: your problem must fit vectorized operations. Element-wise math, matrix algebra, reductions, conditionals (`np.where` computes both branches and masks the result -- redundant work, but still faster than a Python loop on large arrays) -- NumPy handles all of these. What it can't help with: sequential dependencies where each step feeds the next, recursive structures, and small arrays where NumPy's per-call overhead costs more than the computation itself.
 
 ---
 
@@ -416,5 +416,7 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 ---
 
 ## Edits
+
+**2026-03-10:** Rewrote the NumPy constraints paragraph. The original listed *"irregular access patterns, conditionals per element, recursive structures"* as things NumPy can't handle. Two of those were wrong: NumPy fancy indexing handles irregular access fine (22x faster than Python on random gather), and `np.where` handles conditionals (2.8-15.5x faster on 1M elements, even though it computes both branches). Replaced with things NumPy actually can't help with: sequential dependencies (n-body with 5 bodies is 2.3x slower with NumPy), recursive structures, and small arrays (NumPy loses below ~50 elements due to per-call overhead).
 
 **2026-03-10:** The original text said *"Early results are modest (single-digit percent improvements)"* -- implying the 3.13 JIT was already delivering gains. Changed to *"Early results in 3.13 show no improvement on most benchmarks."* Bad wording on my part -- 3.13 JIT shows no speedup (and can be slightly slower). The speedups are coming in 3.15: <a href="https://www.linkedin.com/posts/savannahostrowski_pyperformancepyperformancedata-filesbenchmarks-activity-7427027722201186305-ySkY" target="_blank">Savannah Ostrowski's preliminary FastAPI benchmarks</a> show ~8% improvement on 3.15 (see also <a href="https://doesjitgobrrr.com/" target="_blank">doesjitgobrrr.com</a>). Thanks to <a href="https://github.com/Fidget-Spinner" target="_blank">Fidget-Spinner</a> (CPython core developer working on the JIT) for the <a href="https://github.com/cemrehancavdar/blog/pull/4" target="_blank">correction</a>.
