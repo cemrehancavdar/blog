@@ -1,6 +1,6 @@
 ---
 title: "The Optimization Ladder"
-date: 2026-03-06T20:00:00
+date: 2026-03-10T20:00:00
 type: post
 tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi, graalpy, pypy]
 draft: false
