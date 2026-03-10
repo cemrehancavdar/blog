@@ -78,7 +78,7 @@ So the picture is: **Python is slow because its dynamic design requires runtime 
 
 </div>
 
-The story is **3.10 to 3.11**: a 1.39x speedup on n-body, for free. That's the <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">Faster CPython</a> project -- adaptive specialization of bytecodes, inline caching, zero-cost exceptions. 3.13 squeezed out a bit more. 3.14 gave some of it back -- a minor regression on these benchmarks, likely due to internal refactoring for the new JIT infrastructure.
+The story is **3.10 to 3.11**: a 1.39x speedup on n-body, for free. That's the <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">Faster CPython</a> project -- adaptive specialization of bytecodes, inline caching, zero-cost exceptions. 3.13 squeezed out a bit more. 3.14 gave some of it back -- a minor regression on these benchmarks.
 
 Free-threaded Python (3.14t) is **slower** on single-threaded code. The GIL removal adds overhead to every reference count operation. Worth it only if you have genuinely parallel CPU-bound threads. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/cpython-versions.md" target="_blank">Full version comparison</a>)
 
