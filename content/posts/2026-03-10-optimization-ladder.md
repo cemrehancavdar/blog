@@ -412,3 +412,9 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 **Not covered:** <a href="https://nuitka.net/" target="_blank">Nuitka</a> (Python-to-C compiler, mostly used for packaging -- speedups are in the Mypyc range), <a href="https://pythran.readthedocs.io/" target="_blank">Pythran</a> (NumPy-focused AOT compiler, niche), <a href="https://github.com/spylang/spy" target="_blank">SPy</a> (Antonio Cuni's static Python dialect -- not ready yet but worth watching), and <a href="https://github.com/facebookincubator/cinderx" target="_blank">CinderX</a> (Meta's performance-oriented CPython fork -- not ready yet).
 
 *Found an error? <a href="https://github.com/cemrehancavdar/faster-python-bench/pulls" target="_blank">Open a PR.</a>*
+
+---
+
+## Edits
+
+**2026-03-10:** The original text said *"Early results are modest (single-digit percent improvements)"* -- implying the 3.13 JIT was already delivering gains. Changed to *"Early results in 3.13 show no improvement on most benchmarks."* Bad wording on my part -- 3.13 JIT shows no speedup (and can be slightly slower). The speedups are coming in 3.15: Savannah Ostrowski's preliminary FastAPI benchmarks show ~8% improvement on 3.15. Thanks to <a href="https://github.com/Fidget-Spinner" target="_blank">Fidget-Spinner</a> (CPython core developer working on the JIT) for the <a href="https://github.com/cemrehancavdar/blog/pull/4" target="_blank">correction</a>.
