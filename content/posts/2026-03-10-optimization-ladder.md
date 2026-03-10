@@ -52,7 +52,7 @@ Python int:   [ ob_refcnt  8B ]    reference count
               = 28 bytes minimum
 ```
 
-(Simplified -- CPython 3.12+ renamed `ob_size` to `lv_tag`, packing digit count, sign and flags into one field. Total is still 28 bytes. See <a href="https://github.com/python/cpython/blob/main/Include/cpython/longintrepr.h" target="_blank">longintrepr.h</a>.)
+(Simplified -- CPython 3.12+ replaced `ob_size` with `lv_tag` in a restructured int layout. Total is still 28 bytes. See <a href="https://github.com/python/cpython/blob/main/Include/cpython/longintrepr.h" target="_blank">longintrepr.h</a>.)
 
 4 bytes of number, 24 bytes of machinery to support dynamism. `a + b` means: dereference two heap pointers, look up type slots, dispatch to `int.__add__`, allocate a new `PyObject` for the result (unless it hits the small-integer cache), update reference counts. CPython 3.11+ mitigates this with <a href="https://docs.python.org/3/whatsnew/3.11.html#faster-cpython" target="_blank">adaptive specialization</a> -- hot bytecodes like `BINARY_OP_ADD_INT` skip the dispatch for known types -- but the overhead is still there for the general case. One number isn't slow. Millions in a loop are.
 
