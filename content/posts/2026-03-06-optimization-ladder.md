@@ -104,7 +104,7 @@ Both are JIT-compiled runtimes that generate native machine code from your unmod
 
 PyPy uses a tracing JIT — it records hot loops and compiles them. GraalPy runs on GraalVM's Truffle framework with a method-based JIT. PyPy wins on n-body (13x vs 5.9x), but GraalPy dominates spectral-norm (66x vs 13x) — the matrix-heavy inner loop plays to GraalVM's strengths. GraalPy also offers Java interop and is actively developed by Oracle.
 
-The catch: ecosystem compatibility. Both support major packages, but C extensions run through compatibility layers that can be slower than on CPython. GraalPy is on Python 3.12 (no 3.14 yet). For pure Python code — CLI tools, data transformers, text processors — these are free speed.
+The catch: ecosystem compatibility. Both support major packages, but C extensions run through compatibility layers that can be slower than on CPython. GraalPy is on Python 3.12 (no 3.14 yet) and has slow startup — it's JVM-based, so the JIT needs warmup before reaching peak performance. For pure Python code with long-running hot loops — these are free speed.
 
 ---
 
