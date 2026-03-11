@@ -189,7 +189,7 @@ The constraint: your problem must fit vectorized operations. Element-wise math, 
 
 **Cost: rewriting loops as `jax.lax.fori_loop` + array operations. Reward: 12-1,633x.**
 
-A Reddit commenter (<a href="https://www.reddit.com/r/Python/comments/1rpqugj/" target="_blank">justneurostuff</a>) suggested testing <a href="https://github.com/jax-ml/jax" target="_blank">JAX</a> -- an array computing library that uses XLA JIT compilation. I expected it to land somewhere near NumPy. I was wrong.
+A Reddit commenter (<a href="https://www.reddit.com/r/Python/comments/1rpqugj/comment/o9qvpg4/" target="_blank">justneurostuff</a>) suggested testing <a href="https://github.com/jax-ml/jax" target="_blank">JAX</a> -- an array computing library that uses XLA JIT compilation. I expected it to land somewhere near NumPy. I was wrong.
 
 <div class="bench-table">
 
@@ -449,4 +449,4 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 
 **2026-03-10:** The original text said *"Early results are modest (single-digit percent improvements)"* -- implying the 3.13 JIT was already delivering gains. Changed to *"Early results in 3.13 show no improvement on most benchmarks."* Bad wording on my part -- 3.13 JIT shows no speedup (and can be slightly slower). The speedups are coming in 3.15: <a href="https://www.linkedin.com/posts/savannahostrowski_pyperformancepyperformancedata-filesbenchmarks-activity-7427027722201186305-ySkY" target="_blank">Savannah Ostrowski's preliminary FastAPI benchmarks</a> show ~8% improvement on 3.15 (see also <a href="https://doesjitgobrrr.com/" target="_blank">doesjitgobrrr.com</a>). Thanks to <a href="https://github.com/Fidget-Spinner" target="_blank">Fidget-Spinner</a> (CPython core developer working on the JIT) for the <a href="https://github.com/cemrehancavdar/blog/pull/4" target="_blank">correction</a>.
 
-**2026-03-11:** Added JAX JIT benchmarks after <a href="https://www.reddit.com/r/Python/comments/1rpqugj/" target="_blank">a Reddit comment</a> from justneurostuff suggested testing it. Results: 1,633x on spectral-norm (fastest in the post -- 3x faster than NumPy), 12.2x on n-body. Both bit-identical to baseline. Added as an interlude between NumPy and Numba sections, and to both report card tables.
+**2026-03-11:** Added JAX JIT benchmarks after <a href="https://www.reddit.com/r/Python/comments/1rpqugj/comment/o9qvpg4/" target="_blank">a Reddit comment</a> from justneurostuff suggested testing it. Results: 1,633x on spectral-norm (fastest in the post -- 3x faster than NumPy), 12.2x on n-body. Both bit-identical to baseline. Added as an interlude between NumPy and Numba sections, and to both report card tables.
