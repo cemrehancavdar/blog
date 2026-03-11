@@ -2,7 +2,7 @@
 title: "The Optimization Ladder"
 date: 2026-03-10T20:00:00
 type: post
-tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi, graalpy, pypy]
+tags: [python, performance, benchmark, cython, rust, numba, numpy, mypyc, mojo, codon, taichi, graalpy, pypy, jax]
 draft: false
 unlisted: false
 subtitle: "every way to make Python fast, benchmarked"
@@ -185,6 +185,30 @@ The constraint: your problem must fit vectorized operations. Element-wise math, 
 
 ---
 
+## Interlude: JAX
+
+**Cost: rewriting loops as `jax.lax.fori_loop` + array operations. Reward: 12-1,633x.**
+
+A Reddit commenter (<a href="https://www.reddit.com/r/Python/comments/1rpqugj/" target="_blank">justneurostuff</a>) suggested testing <a href="https://github.com/jax-ml/jax" target="_blank">JAX</a> -- an array computing library that uses XLA JIT compilation. I expected it to land somewhere near NumPy. I was wrong.
+
+<div class="bench-table">
+
+| | N-body | Spectral-norm |
+|---|---|---|
+| CPython 3.14 | 1,242ms | 14,046ms |
+| NumPy | -- | 27ms (**520x**) |
+| JAX JIT | 100ms (**12.2x**) | 8.6ms (**1,633x**) |
+
+</div>
+
+8.6ms on spectral-norm. That's 3x faster than NumPy and the fastest result in this entire post. On n-body, 12.2x -- between Mypyc and Numba. Both results are bit-identical to the CPython baseline. This is single-threaded -- forcing one thread gave 9.1ms vs 8.6ms on spectral-norm.
+
+I don't know JAX well enough to explain exactly why it's 3x faster than NumPy on the same matrix multiplications. Both call BLAS under the hood. My best guess is that JAX's `@jit` compiles the entire function -- matrix build, loop, dot products -- so Python is never involved between operations, while NumPy returns to Python between each `@` call. But I haven't verified that in detail. Might be time to learn.
+
+The catch: JAX is a different programming model. Python loops become `lax.fori_loop`. Conditionals become `lax.cond`. You're writing functional array programs that happen to use Python syntax -- closer to a domain-specific language than a drop-in optimizer. But if your problem fits, the numbers speak for themselves. JAX isn't the only library that compiles array code -- PyTorch has <a href="https://pytorch.org/docs/stable/user_guide/torch_compiler/torch.compiler.html" target="_blank">`torch.compile`</a>, for example. I only tested JAX, so I can't say whether others would produce similar results on these benchmarks.
+
+---
+
 ## Rung 4: Numba
 
 **Cost: `@njit` + restructuring data into NumPy arrays. Reward: 56-135x.**
@@ -339,6 +363,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 | CPython 3.14t | 1,513ms | 0.82x | GIL-free but slower single-thread |
 | Mypyc | 518ms | 2.4x | Type annotations |
 | GraalPy | 211ms | 5.9x | Python 3.12 only, ecosystem compatibility |
+| JAX JIT | 100ms | 12.2x | Rewrite loops as `lax.fori_loop` |
 | PyPy | 98ms | 13x | Ecosystem compatibility |
 | Codon | 47ms | 26x | Separate runtime, limited stdlib |
 | Numba | 22ms | 56x | `@njit` + NumPy arrays |
@@ -368,6 +393,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 | Cython | 142ms | 99x | C knowledge + landmines |
 | Taichi | 71ms | 198x | Python 3.13 only (no 3.14 wheels) |
 | NumPy | 27ms | 520x | Knowing NumPy + O(N^2) memory |
+| JAX JIT | 8.6ms | 1,633x | Rewrite loops as `lax.fori_loop` |
 
 </div>
 
@@ -389,13 +415,15 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 
 ## When to Stop Climbing
 
-The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/GraalPy (6-66x) costs a binary swap. Numba (56x) costs a decorator and data restructuring. Cython (99-124x) costs days and C knowledge. Rust (113-154x) costs learning a new language. The jump from 56x to 113x is a 2x improvement that costs 100x more effort.
+The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/GraalPy (6-66x) costs a binary swap. Numba (56-135x) costs a decorator and data restructuring. JAX (12-1,633x) costs rewriting your code functionally. Cython (99-124x) costs days and C knowledge. Rust (113-154x) costs learning a new language.
 
 **Upgrade first.** 3.10 to 3.11 gives you 1.4x for free.
 
 **Mypyc for typed codebases.** If your code already passes mypy strict, compile it. 2.4x on n-body, 14x on spectral-norm, for almost no work.
 
-**NumPy for vectorizable math.** If your problem is matrix algebra or element-wise operations, stop reading. `a.T @ (a @ u)` beat everything including Rust.
+**NumPy for vectorizable math.** If your problem is matrix algebra or element-wise operations, NumPy gets you 520x with code you already know.
+
+**JAX if you can express it functionally.** Same array paradigm as NumPy, but XLA whole-graph compilation took spectral-norm to 1,633x -- 3x faster than NumPy. The cost is rewriting loops as `lax.fori_loop` and conditionals as `lax.cond`. On problems that don't vectorize well (n-body with 5 bodies), JAX is 12x -- good but not exceptional.
 
 **Numba for numeric loops.** `@njit` gives you 56-135x with one decorator and honest error messages.
 
@@ -420,3 +448,5 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 **2026-03-10:** Rewrote the NumPy constraints paragraph. The original listed *"irregular access patterns, conditionals per element, recursive structures"* as things NumPy can't handle. Two of those were wrong: NumPy fancy indexing handles irregular access fine (22x faster than Python on random gather), and `np.where` handles conditionals (2.8-15.5x faster on 1M elements, even though it computes both branches). Replaced with things NumPy actually can't help with: sequential dependencies (n-body with 5 bodies is 2.3x slower with NumPy), recursive structures, and small arrays (NumPy loses below ~50 elements due to per-call overhead).
 
 **2026-03-10:** The original text said *"Early results are modest (single-digit percent improvements)"* -- implying the 3.13 JIT was already delivering gains. Changed to *"Early results in 3.13 show no improvement on most benchmarks."* Bad wording on my part -- 3.13 JIT shows no speedup (and can be slightly slower). The speedups are coming in 3.15: <a href="https://www.linkedin.com/posts/savannahostrowski_pyperformancepyperformancedata-filesbenchmarks-activity-7427027722201186305-ySkY" target="_blank">Savannah Ostrowski's preliminary FastAPI benchmarks</a> show ~8% improvement on 3.15 (see also <a href="https://doesjitgobrrr.com/" target="_blank">doesjitgobrrr.com</a>). Thanks to <a href="https://github.com/Fidget-Spinner" target="_blank">Fidget-Spinner</a> (CPython core developer working on the JIT) for the <a href="https://github.com/cemrehancavdar/blog/pull/4" target="_blank">correction</a>.
+
+**2026-03-11:** Added JAX JIT benchmarks after <a href="https://www.reddit.com/r/Python/comments/1rpqugj/" target="_blank">a Reddit comment</a> from justneurostuff suggested testing it. Results: 1,633x on spectral-norm (fastest in the post -- 3x faster than NumPy), 12.2x on n-body. Both bit-identical to baseline. Added as an interlude between NumPy and Numba sections, and to both report card tables.
