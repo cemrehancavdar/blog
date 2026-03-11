@@ -201,7 +201,7 @@ A Reddit commenter (<a href="https://www.reddit.com/r/Python/comments/1rpqugj/co
 
 </div>
 
-8.6ms on spectral-norm. That's 3x faster than NumPy and the fastest result in this entire post. On n-body, 12.2x -- between Mypyc and Numba. Both results are bit-identical to the CPython baseline. This is single-threaded -- forcing one thread gave 9.1ms vs 8.6ms on spectral-norm.
+8.6ms on spectral-norm. That's 3x faster than NumPy and the fastest result in this entire post. On n-body, 12.2x -- between Mypyc and Numba. Both results match the CPython baseline to 9 decimal places. This is single-threaded -- forcing one thread gave 9.1ms vs 8.6ms on spectral-norm.
 
 I don't know JAX well enough to explain exactly why it's 3x faster than NumPy on the same matrix multiplications. Both call BLAS under the hood. My best guess is that JAX's `@jit` compiles the entire function -- matrix build, loop, dot products -- so Python is never involved between operations, while NumPy returns to Python between each `@` call. But I haven't verified that in detail. Might be time to learn.
 
@@ -449,4 +449,4 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 
 **2026-03-10:** The original text said *"Early results are modest (single-digit percent improvements)"* -- implying the 3.13 JIT was already delivering gains. Changed to *"Early results in 3.13 show no improvement on most benchmarks."* Bad wording on my part -- 3.13 JIT shows no speedup (and can be slightly slower). The speedups are coming in 3.15: <a href="https://www.linkedin.com/posts/savannahostrowski_pyperformancepyperformancedata-filesbenchmarks-activity-7427027722201186305-ySkY" target="_blank">Savannah Ostrowski's preliminary FastAPI benchmarks</a> show ~8% improvement on 3.15 (see also <a href="https://doesjitgobrrr.com/" target="_blank">doesjitgobrrr.com</a>). Thanks to <a href="https://github.com/Fidget-Spinner" target="_blank">Fidget-Spinner</a> (CPython core developer working on the JIT) for the <a href="https://github.com/cemrehancavdar/blog/pull/4" target="_blank">correction</a>.
 
-**2026-03-11:** Added JAX JIT benchmarks after <a href="https://www.reddit.com/r/Python/comments/1rpqugj/comment/o9qvpg4/" target="_blank">a Reddit comment</a> from justneurostuff suggested testing it. Results: 1,633x on spectral-norm (fastest in the post -- 3x faster than NumPy), 12.2x on n-body. Both bit-identical to baseline. Added as an interlude between NumPy and Numba sections, and to both report card tables.
+**2026-03-11:** Added JAX JIT benchmarks after <a href="https://www.reddit.com/r/Python/comments/1rpqugj/comment/o9qvpg4/" target="_blank">a Reddit comment</a> from justneurostuff suggested testing it. Results: 1,633x on spectral-norm (fastest in the post -- 3x faster than NumPy), 12.2x on n-body. Both match baseline to 9 decimal places. Added as an interlude between NumPy and Numba sections, and to both report card tables.
