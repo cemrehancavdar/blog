@@ -280,12 +280,12 @@ Three tools promise to compile Python (or Python-like code) to native machine co
 | | N-body | Speedup | Spectral-norm | Speedup | The catch |
 |---|---|---|---|---|---|
 | Codon 0.19 | 47ms | **26x** | 99ms | **142x** | Own runtime, limited stdlib, limited CPython interop |
-| Mojo nightly | 16ms | **78x** | 118ms | **119x** | New language (pre-1.0), full rewrite required |
+| Mojo nightly | 11ms | **113x** | 118ms | **119x** | New language (pre-1.0), full rewrite required |
 | Taichi 1.7 | 16ms | **78x** | 71ms | **198x** | Python 3.13 only (no 3.14 wheels) |
 
 </div>
 
-The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes. Taichi has the best spectral-norm result (198x) but **doesn't ship wheels for Python 3.14** -- its numbers above were benchmarked on a separate Python 3.13 environment. That's the compromise with these tools: if your runtime doesn't keep up with CPython releases, you're stuck on an old version or juggling multiple environments. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
+The numbers are real. The developer experience is rough. Codon can't import your existing code. Mojo is a new language wearing Python's clothes -- but with SIMD vectorization and compile-time loop unrolling, it reaches Rust/Cython territory on n-body (113x). Taichi has the best spectral-norm result (198x) but **doesn't ship wheels for Python 3.14** -- its numbers above were benchmarked on a separate Python 3.13 environment. That's the compromise with these tools: if your runtime doesn't keep up with CPython releases, you're stuck on an old version or juggling multiple environments. (<a href="https://github.com/cemrehancavdar/faster-python-bench/blob/main/docs/new-wave-compilers.md" target="_blank">Full deep dive with code and DX verdicts</a>)
 
 None are drop-in. All are worth watching.
 
@@ -304,7 +304,7 @@ None are drop-in. All are worth watching.
 
 </div>
 
-The top of the ladder. But notice: on n-body, Cython at 10ms vs Rust at 11ms -- they're essentially tied. Both compiled to native machine code. The remaining difference is noise, not a fundamental language gap.
+The top of the ladder. But notice: on n-body, Cython at 10ms, Mojo at 11ms, Rust at 11ms -- they're essentially tied. All compiled to native machine code. The remaining difference is noise, not a fundamental language gap.
 
 The real Rust advantage isn't raw speed -- it's **pipeline ownership**. When Rust parses JSON directly with serde into typed structs, it never creates a Python dict. It bypasses the Python object system entirely. That matters more on the next benchmark.
 
@@ -368,7 +368,7 @@ I'm not claiming Cython is faster than Rust or vice versa. A sufficiently motiva
 | Codon | 47ms | 26x | Separate runtime, limited stdlib |
 | Numba | 22ms | 56x | `@njit` + NumPy arrays |
 | Taichi | 16ms | 78x | Python 3.13 only (no 3.14 wheels) |
-| Mojo | 16ms | 78x | New language + toolchain |
+| Mojo | 11ms | 113x | New language + toolchain |
 | Cython | 10ms | 124x | C knowledge + landmines |
 | Rust (PyO3) | 11ms | 113x | Learning Rust |
 
@@ -450,3 +450,5 @@ The effort curve is exponential. Mypyc (2.4-14x) costs type annotations. PyPy/Gr
 **2026-03-10:** The original text said *"Early results are modest (single-digit percent improvements)"* -- implying the 3.13 JIT was already delivering gains. Changed to *"Early results in 3.13 show no improvement on most benchmarks."* Bad wording on my part -- 3.13 JIT shows no speedup (and can be slightly slower). The speedups are coming in 3.15: <a href="https://www.linkedin.com/posts/savannahostrowski_pyperformancepyperformancedata-filesbenchmarks-activity-7427027722201186305-ySkY" target="_blank">Savannah Ostrowski's preliminary FastAPI benchmarks</a> show ~8% improvement on 3.15 (see also <a href="https://doesjitgobrrr.com/" target="_blank">doesjitgobrrr.com</a>). Thanks to <a href="https://github.com/Fidget-Spinner" target="_blank">Fidget-Spinner</a> (CPython core developer working on the JIT) for the <a href="https://github.com/cemrehancavdar/blog/pull/4" target="_blank">correction</a>.
 
 **2026-03-11:** Added JAX JIT benchmarks after <a href="https://www.reddit.com/r/Python/comments/1rpqugj/comment/o9qvpg4/" target="_blank">a Reddit comment</a> from justneurostuff suggested testing it. Results: 1,633x on spectral-norm (fastest in the post -- 3x faster than NumPy), 12.2x on n-body. Both match baseline to 9 decimal places. Added as an interlude between NumPy and Numba sections, and to both report card tables.
+
+**2026-03-19:** Updated Mojo n-body result from 16ms (78x) to 11ms (113x) after <a href="https://github.com/cemrehancavdar/faster-python-bench/pull/2" target="_blank">PR #2</a> by jgsimard applied SIMD vectorization and compile-time loop unrolling. Mojo now ties Rust/Cython on n-body.
