@@ -16,17 +16,51 @@ from blog.models import Post, SiteConfig, load_all_posts
 logger = logging.getLogger(__name__)
 
 
+_INLINE_SPAN_RE = re.compile(r"<span\b[^>]*>.*?</span>", re.DOTALL)
+_PYX_PREFIX_RE = re.compile(r"(__(?:pyx|Pyx|PYX)_)")
+
+
+def _mute_pyx_prefixes(html: str) -> str:
+    """Wrap Cython-internal __pyx_* / __Pyx_* / __PYX_* prefixes in a muted
+    span so the reader's eye lands on the meaningful suffix."""
+    return _PYX_PREFIX_RE.sub(r'<span class="prefix-muted">\1</span>', html)
+
+
 def _highlight_code(code: str, lang: str) -> str:
-    """Syntax highlight a code block."""
+    """Syntax highlight a code block.
+
+    Preserves any `<span>` markers the author placed inside the fence —
+    useful for annotations like `<span class="renamed" title="...">foo</span>`
+    that would otherwise be tokenized by Pygments as literal C. The markers
+    are stashed behind `__SPAN_N__` placeholders while Pygments runs, then
+    reinjected in place of the placeholder's token wrapper.
+    """
+    spans: list[str] = []
+
+    def _stash(match: re.Match[str]) -> str:
+        spans.append(match.group(0))
+        return f"__SPAN_{len(spans) - 1}__"
+
+    clean = _INLINE_SPAN_RE.sub(_stash, code)
+
     try:
-        if lang:
-            lexer = get_lexer_by_name(lang, stripall=True)
-        else:
-            lexer = guess_lexer(code)
+        lexer = get_lexer_by_name(lang, stripall=True) if lang else guess_lexer(clean)
     except Exception:
         return f"<pre><code>{code}</code></pre>"
+
     formatter = HtmlFormatter(nowrap=True)
-    highlighted = highlight(code, lexer, formatter)
+    highlighted = highlight(clean, lexer, formatter)
+
+    # Restore each span: Pygments wrapped the placeholder in its own token
+    # span (e.g. <span class="n">__SPAN_0__</span>) — strip that wrapper and
+    # drop in our original span so it survives with its class + title.
+    for i, original in enumerate(spans):
+        placeholder = f"__SPAN_{i}__"
+        pattern = re.compile(rf"<span[^>]*>\s*{re.escape(placeholder)}\s*</span>")
+        highlighted, replaced = pattern.subn(original, highlighted, count=1)
+        if replaced == 0:
+            highlighted = highlighted.replace(placeholder, original, 1)
+
     return f'<pre><code class="language-{lang}">{highlighted}</code></pre>'
 
 
@@ -40,6 +74,8 @@ def create_markdown_renderer() -> MarkdownIt:
         token = tokens[idx]
         lang = token.info.strip() if token.info else ""
         code = token.content
+        if lang == "cython-output":
+            return _mute_pyx_prefixes(_highlight_code(code, "c"))
         return _highlight_code(code, lang)
 
     md.renderer.rules["fence"] = fence_renderer
@@ -171,6 +207,12 @@ def build_site(
     if static_dir.exists():
         shutil.copytree(static_dir, output_dir / "static", dirs_exist_ok=True)
         logger.info("Copied static files")
+
+    # Copy robots.txt to site root
+    robots_src = static_dir / "robots.txt"
+    if robots_src.exists():
+        shutil.copy2(robots_src, output_dir / "robots.txt")
+        logger.info("Copied robots.txt to root")
 
     # Generate syntax highlighting CSS (light + dark), stripping background colors
     # so code blocks inherit the background from style.css
