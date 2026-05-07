@@ -15,7 +15,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111;
-    --text: #d4d4d4;
+    --text: #ccc;
     --text-dim: #888;
     --link: #ccc;
     --link-visited: #aaa;
@@ -154,13 +154,12 @@ body {
   flex-wrap: wrap;
 }
 .post-tags a {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
   text-decoration: none;
   border: 1px solid var(--border);
   border-radius: 3px;
-  padding: 1px 6px;
-  opacity: 0.7;
+  padding: 1px 8px;
 }
 .post-tags a:hover {
   text-decoration: underline;
@@ -171,19 +170,9 @@ body {
   margin: 24px 0;
 }
 .post-body h2 {
-  margin: 3em 0 0.75em;
+  margin: 32px 0 12px;
   font-size: 1.3rem;
   font-weight: 600;
-}
-.post-body hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 2.5em 0;
-  opacity: 0.5;
-}
-/* When hr is followed by h2, reduce combined spacing */
-.post-body hr + h2 {
-  margin-top: 1.5em;
 }
 .post-body h3 {
   margin: 24px 0 8px;
@@ -223,96 +212,14 @@ body {
 }
 .post-body pre {
   overflow-x: auto;
-  margin-top: 1.75em;
-  margin-bottom: 1.25em;
-  padding: 1.25em 1.5em;
+  padding: 10px 12px;
   border-radius: 4px;
   font-size: 0.8rem;
   line-height: 1.35;
-  position: relative;
 }
 .post-body pre code {
   background: none;
   padding: 0;
-}
-/* Language labels for code blocks */
-.post-body pre code[class*="language-"]::before {
-  position: absolute;
-  top: 0.5em;
-  right: 0.75em;
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.3;
-}
-.post-body pre code.language-python::before { content: "python"; }
-.post-body pre code.language-c::before { content: "c"; }
-.post-body pre code.language-bash::before { content: "bash"; }
-
-/* Cython-specific names (__pyx_v_*, __pyx_pf_*, __pyx_L1_error, etc.).
-   Dotted underline signals "this has a translation you can hover for."
-   The browser shows the `title` attribute as a tooltip. */
-.post-body .renamed {
-  text-decoration: underline dotted;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
-/* Mutes the __pyx_/__Pyx_/__PYX_ prefix in cython-output code blocks so the
-   reader's eye lands on the meaningful suffix (_v_total, _r, _t_4, ...). */
-.post-body .prefix-muted {
-  opacity: 0.35;
-}
-
-/* Details / collapsible blocks */
-.post-body details {
-  margin: 1.5em 0;
-  padding: 0.75em 1em 0.75em 1.25em;
-  border-left: 2px solid var(--border);
-  border-radius: 0 4px 4px 0;
-}
-@media (prefers-color-scheme: dark) {
-  .post-body details {
-    background: rgba(255, 255, 255, 0.02);
-  }
-}
-@media (prefers-color-scheme: light) {
-  .post-body details {
-    background: rgba(0, 0, 0, 0.02);
-  }
-}
-.post-body details summary {
-  cursor: pointer;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  padding: 4px 0;
-  list-style: none;
-}
-.post-body details summary::-webkit-details-marker {
-  display: none;
-}
-.post-body details summary::before {
-  content: "▸ ";
-  font-size: 0.75em;
-}
-.post-body details[open] summary::before {
-  content: "▾ ";
-}
-.post-body details[open] summary {
-  margin-bottom: 0.75em;
-}
-.post-body details > *:not(summary) {
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--text-dim);
-}
-.post-body details a {
-  color: var(--text-dim);
-  text-decoration-color: var(--border);
-}
-.post-body details a:hover {
-  text-decoration-color: var(--text-dim);
 }
 
 /* Lists */
@@ -462,71 +369,6 @@ footer a:hover {
   text-decoration: underline;
 }
 
-/* Inside Cython boxes */
-.post-body .inside-cython {
-  margin: 2em 0;
-  padding: 0;
-  position: relative;
-}
-.post-body .inside-cython-header {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  opacity: 0.6;
-  margin-bottom: 0.5em;
-}
-.post-body .inside-cython-body {
-  padding: 1.25em 1.5em;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--text-dim);
-  border-top: 2px solid var(--border);
-}
-@media (prefers-color-scheme: dark) {
-  .post-body .inside-cython-body {
-    background: rgba(255, 255, 255, 0.03);
-  }
-}
-@media (prefers-color-scheme: light) {
-  .post-body .inside-cython-body {
-    background: rgba(0, 0, 0, 0.02);
-  }
-}
-.post-body .inside-cython-body p {
-  margin: 0.75em 0;
-}
-.post-body .inside-cython-body p:first-child {
-  margin-top: 0;
-}
-.post-body .inside-cython-body p:last-child {
-  margin-bottom: 0;
-}
-.post-body .inside-cython-body a {
-  color: var(--text-dim);
-  text-decoration-color: var(--border);
-}
-.post-body .inside-cython-body a:hover {
-  text-decoration-color: var(--text-dim);
-}
-.post-body .inside-cython-body code {
-  font-size: 0.82em;
-}
-.post-body .inside-cython-body table {
-  font-size: 0.82rem;
-  margin: 1em 0;
-}
-.post-body .inside-cython-body table th {
-  border-bottom-width: 1px;
-  border-bottom-color: var(--border);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.7;
-}
-
 /* Language toggle for audio sections (checkbox hack, no JS) */
 .lang-toggle-input {
   display: none;
@@ -562,6 +404,32 @@ footer a:hover {
 .lang-toggle-input:checked ~ .audio-section .audio-row {
   flex-direction: column;
   gap: 16px;
+}
+
+/* Audio rows (transcript + player, side-by-side TR/EN) */
+.audio-row {
+  display: flex;
+  gap: 20px;
+  margin: 20px 0;
+}
+.audio-item {
+  flex: 1;
+  min-width: 0;
+}
+.audio-text {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.audio-item audio {
+  width: 100%;
+}
+@media (max-width: 640px) {
+  .audio-row {
+    flex-direction: column;
+  }
 }
 
 /* Responsive */

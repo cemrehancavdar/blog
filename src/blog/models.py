@@ -23,7 +23,6 @@ class Post:
     unlisted: bool = False  # built but not shown in index/archive/tags/RSS
     description: str = ""
     subtitle: str = ""
-    meta: dict = field(default_factory=dict)  # raw frontmatter for template access
     html: str = ""  # rendered HTML, set during build
 
     @property
@@ -151,7 +150,6 @@ def load_post(filepath: Path) -> Post:
         unlisted=metadata.get("unlisted", False),
         description=metadata.get("description", ""),
         subtitle=metadata.get("subtitle", ""),
-        meta=metadata,
     )
 
 
