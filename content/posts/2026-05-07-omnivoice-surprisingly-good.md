@@ -72,7 +72,7 @@ The timbre is close. Not perfect, you can hear a synthetic texture on some conso
 
 ## Tongue twisters
 
-I also wanted to see how it handles actually hard speech. Turkish *tekerleme* (tongue twisters) are genuinely difficult, the kind of thing that ties your mouth in knots. If the model can do these without falling apart, it's doing something real.
+I also wanted to see how it handles actually hard speech. Turkish *tekerleme* (tongue twisters) are genuinely difficult, the kind of thing that ties your mouth in knots. If the model can do these without producing intertwined sounds, it's doing something real.
 
 <div class="audio-section">
   <div class="audio-row">
