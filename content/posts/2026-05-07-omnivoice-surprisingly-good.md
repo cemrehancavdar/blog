@@ -38,13 +38,13 @@ I recorded two short samples of myself and used them as references.
   <h3>Original voice</h3>
   <div class="audio-row">
     <div class="audio-item lang-tr">
-      <div class="audio-text">"Selam ben cemrehan bu da benim ses kaydım"</div>
+      <div class="audio-text">"Selam ben Cemrehan bu da benim ses kaydım"</div>
       <audio controls>
         <source src="/static/audio/cemrehan-tr.mp3" type="audio/mpeg">
       </audio>
     </div>
     <div class="audio-item lang-en">
-      <div class="audio-text">"Hello my name is cemrehan and this is my voice record"</div>
+      <div class="audio-text">"Hello my name is Cemrehan and this is my voice record"</div>
       <audio controls>
         <source src="/static/audio/cemrehan-en.mp3" type="audio/mpeg">
       </audio>
