@@ -192,6 +192,21 @@ body {
   max-width: 100%;
   height: auto;
 }
+.post-body img.phone,
+.post-body video.phone {
+  display: block;
+  max-width: 280px;
+  margin: 0 auto;
+}
+.post-body figure.captioned-figure {
+  margin: 24px 0;
+}
+.post-body figure.captioned-figure figcaption {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 0.85em;
+  color: var(--text-dim);
+}
 .post-body blockquote {
   margin: 16px 0;
   padding: 10px 20px;

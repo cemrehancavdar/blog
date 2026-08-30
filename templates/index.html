@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block head %}
-{% if posts|selectattr("has_code")|list %}<link rel="stylesheet" href="/static/syntax.css">{% endif %}
+{% if posts|selectattr("has_code")|list %}<link rel="stylesheet" href="/static/syntax.css?v={{ now.strftime('%Y%m%d%H%M%S') }}">{% endif %}
 {% endblock %}
 
 {% block content %}

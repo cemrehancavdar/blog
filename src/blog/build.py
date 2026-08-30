@@ -43,6 +43,17 @@ def create_markdown_renderer() -> MarkdownIt:
         return _highlight_code(code, lang)
 
     md.renderer.rules["fence"] = fence_renderer
+
+    # External links open in a new tab
+    def link_open_renderer(tokens, idx, options, env):
+        token = tokens[idx]
+        href = token.attrGet("href") or ""
+        if href.startswith(("http://", "https://")):
+            token.attrSet("target", "_blank")
+            token.attrSet("rel", "noopener noreferrer")
+        return md.renderer.renderToken(tokens, idx, options, env)
+
+    md.renderer.rules["link_open"] = link_open_renderer
     return md
 
 
